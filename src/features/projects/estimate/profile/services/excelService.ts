@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx/xlsx.mjs';
-import { InstallationProfile, Material, Work, WorkMaterial } from '@/services/storage/indexedDB'
+import { InstallationProfile, Material, Work } from '@/services/storage/indexedDB'
 import { db } from '@/services/storage/indexedDB'
+import { profileService } from './profileService'
 
 /**
  * Интерфейс для строки Excel файла
@@ -218,91 +219,41 @@ export async function importProfileFromExcel(
               // Используем существующую работу
               currentWork = worksByName.get(specificationName)!
             } else {
-              // Создаем новую работу
+              // Создаем новую работу через profileService (синхронизирует с сервером)
               const workData = {
-                profileId: String(profileId),
-                userId,
                 name: specificationName,
-                unit: row.unit || '', // Для работ unit может быть пустым
+                unit: row.unit || '',
                 workPrice: row.price !== undefined ? row.price : 0,
                 calculationType: row.calculationType || 'byArea',
-                createdAt: now,
-                updatedAt: now,
-                syncStatus: 'pending' as const,
               }
 
-              const workId = await db.works.add(workData)
-              currentWork = { ...workData, id: workId as number }
+              currentWork = await profileService.createWork(String(profileId), userId, workData, [])
               works.push(currentWork)
               worksByName.set(specificationName, currentWork)
-
-              // Добавляем в очередь синхронизации
-              await db.syncQueue.add({
-                table: 'works',
-                recordId: String(workId),
-                operation: 'create',
-                data: currentWork,
-                timestamp: now,
-                retries: 0,
-              })
-
-              // Синхронизируем с сервером
-              const { profileService } = await import('./profileService')
-              profileService.syncWorkToServer(currentWork).catch(console.error)
             }
           }
 
           // Если указано комплектующее
           if (row.component && currentWork) {
-            // Создаем материал
+            // Создаем материал через profileService (синхронизирует с сервером)
             const materialData = {
-              profileId: String(profileId),
-              userId,
               name: String(row.component),
-              // Для unit: если значение есть (не undefined и не пустая строка), используем его, иначе 'шт'
               unit: (row.unit !== undefined && row.unit !== null && String(row.unit).trim() !== '') 
                 ? String(row.unit).trim() 
                 : 'шт',
-              // Для price: если значение есть (не undefined и не null), используем его, иначе 0
               price: (row.price !== undefined && row.price !== null) ? row.price : 0,
-              // Для purchasePrice и totalCost: сохраняем только если значение есть
               purchasePrice: (row.purchasePrice !== undefined && row.purchasePrice !== null) ? row.purchasePrice : undefined,
               totalCost: (row.totalCost !== undefined && row.totalCost !== null) ? row.totalCost : undefined,
               calculationType: row.calculationType || 'byArea',
               coefficient: row.coefficient !== undefined ? row.coefficient : (row.quantity !== undefined ? row.quantity : 1),
-              initialQuantity: row.quantity !== undefined ? row.quantity : 1, // Изначальное количество
-              createdAt: now,
-              updatedAt: now,
-              syncStatus: 'pending' as const,
+              initialQuantity: row.quantity !== undefined ? row.quantity : 1,
             }
 
-            const materialId = await db.materials.add(materialData)
-            const material: Material = { ...materialData, id: materialId as number }
+            const material = await profileService.createMaterial(String(profileId), userId, materialData)
             materials.push(material)
 
-            // Добавляем в очередь синхронизации
-            await db.syncQueue.add({
-              table: 'materials',
-              recordId: String(materialId),
-              operation: 'create',
-              data: material,
-              timestamp: now,
-              retries: 0,
-            })
-
-            // Синхронизируем с сервером
-            const { profileService } = await import('./profileService')
-            profileService.syncMaterialToServer(material).catch(console.error)
-
-            // Связываем материал с работой
-            await db.workMaterials.add({
-              workId: String(currentWork.id),
-              materialId: String(materialId),
-              quantity: row.quantity || 1, // Количество в WorkMaterial
-              calculationOverride: null,
-              createdAt: now,
-              syncStatus: 'pending' as const,
-            } as WorkMaterial)
+            // Связываем материал с работой через profileService (синхронизирует с сервером)
+            await profileService.addMaterialToWork(String(currentWork.id), String(material.id))
           }
         }
 

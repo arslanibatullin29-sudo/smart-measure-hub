@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Settings, Plus, Package, Wrench, Upload, Download, Star, Trash2 } from 'lucide-react'
+import { Settings, Plus, Package, Wrench, Upload, Download, Star, Trash2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { handleError, handleSuccess, handleInfo } from '@/shared/utils/errorHandler'
 import { InstallationProfile, Material, Work } from '@/services/storage/indexedDB'
@@ -29,6 +29,7 @@ function ProfilesList() {
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [deletingProfileId, setDeletingProfileId] = useState<string | number | null>(null)
   const [importingProfileId, setImportingProfileId] = useState<string | number | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const loadProfiles = useCallback(async () => {
     if (!user?.id) return
@@ -265,6 +266,26 @@ function ProfilesList() {
     }
   }
 
+  const handleForceSync = async () => {
+    if (!user?.id) return
+    setIsSyncing(true)
+    try {
+      const result = await profileService.forceSyncLocalToServer(user.id)
+      if (result.synced > 0) {
+        handleSuccess(`Синхронизировано: ${result.synced} записей`)
+      } else if (result.errors > 0) {
+        handleError(new Error('Ошибки синхронизации'), `Ошибок: ${result.errors}`)
+      } else {
+        handleInfo('Все данные уже синхронизированы')
+      }
+      await loadProfiles()
+    } catch (error: any) {
+      handleError(error, 'Ошибка синхронизации')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   if (isLoading) {
     return <div className="p-8 text-center">Загрузка...</div>
   }
@@ -277,6 +298,10 @@ function ProfilesList() {
           <p className="text-muted-foreground mt-1">Управление профилями монтажа и их материалами</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={handleForceSync} variant="outline" disabled={isSyncing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Синхронизация...' : 'Синхронизировать'}
+          </Button>
           <Button onClick={() => setShowProfileDialog(true)} variant="outline">
             <Plus className="mr-2 h-4 w-4" />
             Создать профиль
