@@ -8,51 +8,61 @@ import { pdfService } from '@/features/pdf/services/pdfService'
 import { EstimateResult } from '../estimate/calculators/estimateCalculator'
 import { EditableEstimateTable } from '../estimate/components/EditableEstimateTable'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Download, Loader2, Save } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingBar } from '@/components/LoadingBar'
+import { ArrowLeft, Download, Loader2, Save, RefreshCw, Square, Maximize2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Project } from '../models/Project'
+import { Customer } from '@/features/customers/models/Customer'
 
 function ProjectEstimate() {
   const { customerId, projectId } = useParams<{ customerId: string; projectId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [estimate, setEstimate] = useState<EstimateResult | null>(null)
-  
   const [project, setProject] = useState<Project | null>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
   useEffect(() => {
-    if (projectId && user?.id) {
-      loadEstimate()
+    if (projectId && customerId && user?.id) {
+      loadData()
     }
-  }, [projectId, user?.id])
+  }, [projectId, customerId, user?.id])
 
-  const loadEstimate = async () => {
-    if (!projectId || !user?.id) return
+  const loadData = async () => {
+    if (!projectId || !customerId || !user?.id) return
     setIsLoading(true)
     try {
-      const proj = await projectsService.getById(projectId)
+      // Загружаем проект и клиента параллельно
+      const [proj, customers] = await Promise.all([
+        projectsService.getById(projectId),
+        customersService.getAll(user.id)
+      ])
+      
       if (!proj) {
-        alert('Проект не найден')
+        toast.error('Проект не найден')
         navigate(`/customers/${customerId}/projects`)
         return
       }
+      
+      const cust = customers.find(c => String(c.id) === customerId)
       setProject(proj)
+      setCustomer(cust || null)
 
-      // Проверяем, есть ли сохранённая смета в проекте
+      // Проверяем, есть ли сохранённая смета
       if (proj.estimateData) {
         setEstimate(proj.estimateData as EstimateResult)
       } else {
-        // Рассчитываем новую смету
         const result = await estimateService.calculate(proj)
         setEstimate(result)
       }
     } catch (error: any) {
-      toast.error('Ошибка расчёта сметы: ' + error.message)
+      toast.error('Ошибка: ' + error.message)
     } finally {
       setIsLoading(false)
     }
@@ -72,11 +82,10 @@ function ProjectEstimate() {
         ...project,
         estimateData: estimate,
       })
-      
       setHasChanges(false)
-      toast.success('Смета сохранена')
+      toast.success('Сохранено')
     } catch (error: any) {
-      toast.error('Ошибка сохранения сметы: ' + error.message)
+      toast.error('Ошибка: ' + error.message)
     } finally {
       setIsSaving(false)
     }
@@ -90,32 +99,26 @@ function ProjectEstimate() {
       const result = await estimateService.calculate(project)
       setEstimate(result)
       setHasChanges(true)
-      toast.success('Смета пересчитана')
+      toast.success('Пересчитано')
     } catch (error: any) {
-      toast.error('Ошибка пересчёта сметы: ' + error.message)
+      toast.error('Ошибка: ' + error.message)
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleGeneratePDF = async () => {
-    if (!projectId || !customerId || !user?.id || !estimate) return
+    if (!project || !customer || !estimate) {
+      toast.error('Недостаточно данных')
+      return
+    }
 
     setIsGenerating(true)
     try {
-      const proj = await projectsService.getById(projectId)
-      const customers = await customersService.getAll(user.id)
-      const customer = customers.find((c) => c.id === customerId)
-
-      if (!proj || !customer) {
-        toast.error('Данные не найдены')
-        return
-      }
-
-      await pdfService.downloadPDF(customer, proj, estimate)
-      toast.success('PDF успешно сгенерирован')
+      await pdfService.downloadPDF(customer, project, estimate)
+      toast.success('PDF сгенерирован')
     } catch (error: any) {
-      toast.error('Ошибка генерации PDF: ' + error.message)
+      toast.error('Ошибка: ' + error.message)
     } finally {
       setIsGenerating(false)
     }
@@ -123,19 +126,30 @@ function ProjectEstimate() {
 
   if (isLoading) {
     return (
-      <div className="p-8 text-center">
-        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="mt-4 text-muted-foreground">Расчёт сметы...</p>
+      <div className="w-full space-y-4 animate-fade-in">
+        <LoadingBar isLoading={true} />
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-6 w-48" />
+        </div>
+        <Card>
+          <CardContent className="p-4">
+            <Skeleton className="h-8 w-full mb-2" />
+            <Skeleton className="h-6 w-full mb-1" />
+            <Skeleton className="h-6 w-full mb-1" />
+            <Skeleton className="h-6 w-3/4" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (!estimate) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-muted-foreground mb-4">Не удалось рассчитать смету</p>
-        <Button onClick={() => navigate(`/customers/${customerId}/projects`)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
+      <div className="text-center py-8">
+        <p className="text-muted-foreground mb-4 text-sm">Не удалось рассчитать смету</p>
+        <Button size="sm" onClick={() => navigate(`/customers/${customerId}/projects`)}>
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
           Назад
         </Button>
       </div>
@@ -143,59 +157,104 @@ function ProjectEstimate() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Смета проекта</h1>
-          <p className="text-muted-foreground mt-1">
-            Детальный расчет стоимости работ и материалов
-            {hasChanges && <span className="text-orange-500 ml-2">(есть несохранённые изменения)</span>}
-          </p>
+    <div className="w-full space-y-4 animate-fade-in">
+      <LoadingBar isLoading={isLoading || isSaving || isGenerating} />
+      
+      {/* Компактный заголовок */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/customers/${customerId}/projects`)}
+            className="h-8 w-8 p-0 flex-shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold truncate">
+              Смета
+              {hasChanges && <span className="text-warning text-sm ml-2">•</span>}
+            </h1>
+            {customer && (
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{customer.fullName}</p>
+            )}
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => navigate(`/customers/${customerId}/projects`)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Назад
+        
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRecalculate} 
+            disabled={isLoading}
+            className="h-8 text-xs sm:text-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5 sm:mr-1" />
+            <span className="hidden sm:inline">Пересчитать</span>
           </Button>
-          <Button variant="outline" onClick={handleRecalculate} disabled={isLoading}>
-            Пересчитать
-          </Button>
+          
           {hasChanges && (
-            <Button onClick={handleSaveEstimate} disabled={isSaving}>
+            <Button 
+              size="sm" 
+              onClick={handleSaveEstimate} 
+              disabled={isSaving}
+              className="h-8 text-xs sm:text-sm"
+            >
               {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Сохранение...
-                </>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Сохранить
+                  <Save className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Сохранить</span>
                 </>
               )}
             </Button>
           )}
-          <Button onClick={handleGeneratePDF} disabled={isGenerating}>
+          
+          <Button 
+            size="sm" 
+            onClick={handleGeneratePDF} 
+            disabled={isGenerating}
+            className="h-8 text-xs sm:text-sm"
+          >
             {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Генерация...
-              </>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <>
-                <Download className="mr-2 h-4 w-4" />
-                Скачать PDF
+                <Download className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">PDF</span>
               </>
             )}
           </Button>
         </div>
       </div>
 
+      {/* Параметры объекта - компактно */}
+      {project && (
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+            <Square className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs sm:text-sm font-mono">{project.area.toFixed(1)} м²</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+            <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs sm:text-sm font-mono">{project.perimeter.toFixed(1)} м</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+            <span className="text-xs text-muted-foreground">Углов:</span>
+            <span className="text-xs sm:text-sm font-semibold">{project.points.length}</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+            <span className="text-xs text-muted-foreground">Элементов:</span>
+            <span className="text-xs sm:text-sm font-semibold">{project.elementCount}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Таблица сметы */}
       <Card>
-        <CardHeader>
-          <CardTitle>Редактирование сметы</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-2 sm:p-4">
           <EditableEstimateTable
             estimate={estimate}
             onEstimateChange={handleEstimateChange}
