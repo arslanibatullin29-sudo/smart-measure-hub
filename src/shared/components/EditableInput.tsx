@@ -1,7 +1,8 @@
-import { Input, InputProps } from '@/components/ui/input'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { ComponentProps } from 'react'
 
-interface EditableInputProps extends Omit<InputProps, 'className'> {
+interface EditableInputProps extends Omit<ComponentProps<typeof Input>, 'className'> {
   className?: string
   editableClassName?: string
 }

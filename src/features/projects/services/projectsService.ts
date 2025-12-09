@@ -1,6 +1,5 @@
 import { supabase } from '@/services/supabase/supabaseClient'
 import { db, Project } from '@/services/storage/indexedDB'
-import { syncService } from '@/services/sync/syncService'
 
 export const projectsService = {
   async getAll(customerId: string, userId: string): Promise<Project[]> {
@@ -304,13 +303,13 @@ export const projectsService = {
           customerId: item.customer_id,
           userId: item.user_id,
           profileId: item.profile_id || null,
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-          lastSyncedAt: item.last_synced_at,
+          createdAt: item.created_at ?? new Date().toISOString(),
+          updatedAt: item.updated_at ?? new Date().toISOString(),
+          lastSyncedAt: item.last_synced_at ?? null,
           points,
           area: item.area,
           perimeter: item.perimeter,
-          elementCount: item.element_count,
+          elementCount: item.element_count ?? 0,
           estimateData,
           syncStatus: 'synced',
         }
@@ -319,7 +318,7 @@ export const projectsService = {
         const existingByUuid = localByUuid.get(item.id)
         if (existingByUuid) {
           // Обновляем существующую запись только если серверная версия новее
-          const serverTime = new Date(item.updated_at).getTime()
+          const serverTime = new Date(item.updated_at ?? new Date()).getTime()
           const localTime = new Date(existingByUuid.updatedAt).getTime()
           if (serverTime > localTime) {
             await db.projects.put(project)
@@ -435,13 +434,13 @@ export const projectsService = {
           customerId: item.customer_id,
           userId: item.user_id,
           profileId: item.profile_id || null,
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-          lastSyncedAt: item.last_synced_at,
+          createdAt: item.created_at ?? new Date().toISOString(),
+          updatedAt: item.updated_at ?? new Date().toISOString(),
+          lastSyncedAt: item.last_synced_at ?? null,
           points,
           area: item.area,
           perimeter: item.perimeter,
-          elementCount: item.element_count,
+          elementCount: item.element_count ?? 0,
           estimateData,
           syncStatus: 'synced',
         }
@@ -450,7 +449,7 @@ export const projectsService = {
         const existingByUuid = localByUuid.get(item.id)
         if (existingByUuid) {
           // Обновляем существующую запись только если серверная версия новее
-          const serverTime = new Date(item.updated_at).getTime()
+          const serverTime = new Date(item.updated_at ?? new Date()).getTime()
           const localTime = new Date(existingByUuid.updatedAt).getTime()
           if (serverTime > localTime) {
             await db.projects.put(project)

@@ -256,12 +256,12 @@ export const customersService = {
           id: item.id,
           userId: item.user_id,
           fullName: item.full_name,
-          address: item.address,
-          phone: item.phone,
-          comment: item.comment,
-          createdAt: item.created_at,
-          updatedAt: item.updated_at,
-          lastSyncedAt: item.last_synced_at,
+          address: item.address ?? '',
+          phone: item.phone ?? '',
+          comment: item.comment ?? '',
+          createdAt: item.created_at ?? new Date().toISOString(),
+          updatedAt: item.updated_at ?? new Date().toISOString(),
+          lastSyncedAt: item.last_synced_at ?? null,
           syncStatus: 'synced',
         }
 
@@ -269,7 +269,7 @@ export const customersService = {
         const existingByUuid = localByUuid.get(item.id)
         if (existingByUuid) {
           // Обновляем существующую запись только если серверная версия новее
-          const serverTime = new Date(item.updated_at).getTime()
+          const serverTime = new Date(item.updated_at ?? new Date()).getTime()
           const localTime = new Date(existingByUuid.updatedAt).getTime()
           if (serverTime > localTime) {
             await db.customers.put(customer)

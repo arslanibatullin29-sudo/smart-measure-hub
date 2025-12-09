@@ -193,8 +193,9 @@ export async function importProfileFromExcel(
             syncStatus: 'pending' as const,
           }
 
-          profileId = await db.installationProfiles.add(profileData)
-          profile = { ...profileData, id: profileId as number }
+          const newProfileId = await db.installationProfiles.add(profileData)
+          profileId = newProfileId as string | number
+          profile = { ...profileData, id: profileId }
         }
 
         const works: Work[] = []

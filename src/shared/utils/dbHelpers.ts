@@ -9,15 +9,16 @@ export async function findEntityById<T>(
   id: string | number
 ): Promise<T | null> {
   // Сначала пробуем найти напрямую
-  let entity = await table.get(id as any)
+  const entity = await table.get(id as any)
   
   if (!entity) {
     // Если не нашли, ищем по строковому сравнению
     const allEntities = await table.toArray()
-    entity = (allEntities as any[]).find((e: any) => String(e.id) === String(id)) || null
+    const found = (allEntities as any[]).find((e: any) => String(e.id) === String(id))
+    return found || null
   }
   
-  return entity
+  return entity ?? null
 }
 
 /**

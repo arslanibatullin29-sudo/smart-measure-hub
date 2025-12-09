@@ -371,13 +371,13 @@ function Canvas({
     return { x, y }
   }
   
-  const getTouchDistance = (touch1: Touch, touch2: Touch): number => {
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch): number => {
     const dx = touch2.clientX - touch1.clientX
     const dy = touch2.clientY - touch1.clientY
     return Math.sqrt(dx * dx + dy * dy)
   }
   
-  const getTouchCenter = (touch1: Touch, touch2: Touch): Point => {
+  const getTouchCenter = (touch1: React.Touch, touch2: React.Touch): Point => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
