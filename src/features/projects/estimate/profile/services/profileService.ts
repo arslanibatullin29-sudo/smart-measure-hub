@@ -48,15 +48,36 @@ export const profileService = {
   async createProfile(userId: string, name: string, isDefault: boolean = false): Promise<InstallationProfile> {
     const now = new Date().toISOString()
     
-    // Если создаем профиль по умолчанию, снимаем флаг с других профилей
+    // Если создаем профиль по умолчанию, сначала снимаем флаг с других профилей на СЕРВЕРЕ
     if (isDefault) {
+      try {
+        // Снимаем флаг is_default на сервере ПЕРЕД созданием нового профиля
+        const { data: serverProfiles } = await supabase
+          .from('installation_profiles')
+          .select('id, is_default')
+          .eq('user_id', userId)
+          .eq('is_default', true)
+        
+        if (serverProfiles && serverProfiles.length > 0) {
+          for (const otherProfile of serverProfiles) {
+            await supabase
+              .from('installation_profiles')
+              .update({ is_default: false, updated_at: now })
+              .eq('id', otherProfile.id)
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при снятии флага is_default на сервере:', error)
+      }
+      
+      // Снимаем флаг локально
       const existingDefault = await db.installationProfiles
         .where('userId').equals(userId)
         .and(p => p.isDefault === true)
         .toArray()
       
       for (const profile of existingDefault) {
-        await db.installationProfiles.update(profile.id!, { isDefault: false } as any)
+        await db.installationProfiles.update(profile.id!, { isDefault: false, syncStatus: 'synced' } as any)
       }
     }
     
@@ -83,8 +104,27 @@ export const profileService = {
       retries: 0,
     })
 
-    this.syncProfileToServer(saved).catch(console.error)
-    return saved
+    // Синхронизируем профиль, но НЕ устанавливаем is_default повторно (уже сделано выше)
+    try {
+      await this.syncProfileToServer({ ...saved, isDefault: false })
+      // После синхронизации обновляем с правильным isDefault
+      if (isDefault) {
+        const syncedProfile = await db.installationProfiles.get(id)
+        if (syncedProfile) {
+          await supabase
+            .from('installation_profiles')
+            .update({ is_default: true, updated_at: now })
+            .eq('id', String(syncedProfile.id))
+          await db.installationProfiles.update(syncedProfile.id!, { isDefault: true, syncStatus: 'synced' })
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка синхронизации профиля:', error)
+    }
+    
+    // Возвращаем актуальный профиль из БД
+    const result = await db.installationProfiles.get(id)
+    return result || saved
   },
 
   async updateProfile(id: string | number, data: Partial<InstallationProfile>): Promise<InstallationProfile> {
@@ -92,50 +132,50 @@ export const profileService = {
     const profile = await findEntityById<InstallationProfile>(db.installationProfiles, id)
     if (!profile) throw new Error('Профиль не найден')
 
-    // Если устанавливаем профиль по умолчанию, снимаем флаг с других ПЕРЕД обновлением
+    // Если устанавливаем профиль по умолчанию, снимаем флаг с других СНАЧАЛА НА СЕРВЕРЕ
     if (data.isDefault === true) {
+      try {
+        // Снимаем флаг is_default на сервере ПЕРЕД обновлением
+        const { data: serverProfiles } = await supabase
+          .from('installation_profiles')
+          .select('id, is_default')
+          .eq('user_id', profile.userId)
+          .eq('is_default', true)
+        
+        if (serverProfiles && serverProfiles.length > 0) {
+          const otherProfiles = serverProfiles.filter(p => String(p.id) !== String(id))
+          for (const otherProfile of otherProfiles) {
+            await supabase
+              .from('installation_profiles')
+              .update({ is_default: false, updated_at: now })
+              .eq('id', otherProfile.id)
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка при снятии флага is_default на сервере:', error)
+      }
+      
+      // Затем снимаем флаг локально
       const existingDefault = await db.installationProfiles
         .where('userId').equals(profile.userId)
         .and(p => p.isDefault === true && String(p.id) !== String(id))
         .toArray()
       
-      // Сначала обновляем все существующие профили по умолчанию
       for (const p of existingDefault) {
-        const updatedDefault: InstallationProfile = { ...p, isDefault: false, updatedAt: now, syncStatus: 'pending' }
-        await db.installationProfiles.update(p.id!, updatedDefault)
-        
-        // Добавляем в очередь синхронизации для обновления на сервере
-        await db.syncQueue.add({
-          table: 'installation_profiles',
-          recordId: String(p.id),
-          operation: 'update',
-          data: updatedDefault,
-          timestamp: now,
-          retries: 0,
-        })
-        
-        // Синхронизируем обновление немедленно, чтобы избежать конфликтов
-        try {
-          await this.syncProfileToServer(updatedDefault)
-        } catch (error) {
-          console.error(`Ошибка синхронизации профиля ${p.id}:`, error)
-        }
+        await db.installationProfiles.update(p.id!, { isDefault: false, syncStatus: 'synced', updatedAt: now })
       }
     }
 
     const updated: InstallationProfile = { ...profile, ...data, updatedAt: now, syncStatus: 'pending' }
     await db.installationProfiles.update(profile.id!, updated)
 
-    await db.syncQueue.add({
-      table: 'installation_profiles',
-      recordId: String(profile.id),
-      operation: 'update',
-      data: updated,
-      timestamp: now,
-      retries: 0,
-    })
-
-    this.syncProfileToServer(updated).catch(console.error)
+    // Синхронизируем обновленный профиль
+    try {
+      await this.syncProfileToServer(updated)
+    } catch (error) {
+      console.error('Ошибка синхронизации профиля:', error)
+    }
+    
     return updated
   },
 
@@ -349,31 +389,7 @@ export const profileService = {
   // Синхронизация профилей
   async syncProfileToServer(profile: InstallationProfile): Promise<void> {
     try {
-      // Если устанавливаем профиль по умолчанию, сначала снимаем флаг с других профилей на сервере
-      if (profile.isDefault) {
-        try {
-          // Получаем все профили пользователя с сервера
-          const { data: serverProfiles } = await supabase
-            .from('installation_profiles')
-            .select('id, is_default')
-            .eq('user_id', profile.userId)
-            .eq('is_default', true)
-          
-          // Снимаем флаг is_default с других профилей на сервере
-          if (serverProfiles && serverProfiles.length > 0) {
-            const otherProfiles = serverProfiles.filter(p => String(p.id) !== String(profile.id))
-            for (const otherProfile of otherProfiles) {
-              await supabase
-                .from('installation_profiles')
-                .update({ is_default: false, updated_at: new Date().toISOString() })
-                .eq('id', otherProfile.id)
-            }
-          }
-        } catch (error) {
-          console.error('Ошибка при снятии флага is_default с других профилей:', error)
-          // Продолжаем выполнение, даже если не удалось снять флаг
-        }
-      }
+      // НЕ снимаем флаг is_default здесь - это уже сделано в createProfile/updateProfile
 
       const profileHasUUID = profile.id && isUUID(profile.id)
       
