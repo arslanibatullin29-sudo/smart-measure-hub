@@ -17,16 +17,14 @@ export function Layout({ children }: LayoutProps) {
   const queryClient = useQueryClient()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Инициализируем автоматическую синхронизацию при монтировании
   useEffect(() => {
     if (user?.id) {
       setupNetworkSync(user.id)
       
-      // Обновляем кэш после начальной синхронизации (через небольшую задержку)
       const updateCache = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['customers', user.id] })
         queryClient.invalidateQueries({ queryKey: ['projects'] })
-      }, 2000) // Даем время setupNetworkSync выполнить синхронизацию
+      }, 2000)
       
       return () => clearTimeout(updateCache)
     }
@@ -46,31 +44,26 @@ export function Layout({ children }: LayoutProps) {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300">
-        <header className="h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 flex items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-56 transition-all duration-300">
+        <header className="h-12 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 flex items-center justify-between px-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button
               variant="ghost"
-              size="icon"
-              className="lg:hidden"
+              size="sm"
+              className="lg:hidden h-8 w-8 p-0"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
-            <h1 className="text-lg font-semibold">Room App</h1>
+            <h1 className="text-base sm:text-lg font-semibold">Room App</h1>
           </div>
-          <div className="flex items-center gap-2 lg:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <SyncIndicator />
-            {user?.email && (
-              <span className="hidden sm:inline text-sm text-muted-foreground truncate max-w-[150px] lg:max-w-none">
-                {user.email}
-              </span>
-            )}
             <ThemeToggle />
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 lg:p-6 w-full max-w-full">
-          <div className="w-full max-w-7xl mx-auto">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-5 w-full max-w-full">
+          <div className="w-full max-w-6xl mx-auto">
             {children}
           </div>
         </main>

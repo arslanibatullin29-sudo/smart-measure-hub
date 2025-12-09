@@ -1,9 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  Users, 
-  Ruler,
-  Settings
-} from 'lucide-react'
+import { Users, Settings, LogOut, Ruler } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { authService } from '@/features/auth/services/authService'
@@ -30,7 +26,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   }
 
   const handleLinkClick = () => {
-    // Закрываем sidebar на мобильных при клике на ссылку
     if (window.innerWidth < 1024 && onClose) {
       onClose()
     }
@@ -38,25 +33,25 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   return (
     <aside className={cn(
-      "w-64 bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-50 border-r border-sidebar-border transition-transform duration-300 ease-in-out",
+      "w-56 bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-50 border-r border-sidebar-border transition-transform duration-300 ease-in-out",
       "lg:translate-x-0",
       isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
     )}>
-      {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border">
-        <Link to="/customers" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
-            <Ruler className="w-5 h-5 text-sidebar-primary-foreground" />
+      {/* Logo - компактный */}
+      <div className="p-3 sm:p-4 border-b border-sidebar-border">
+        <Link to="/customers" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
+            <Ruler className="w-4 h-4 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">Room App</h1>
-            <p className="text-xs text-sidebar-foreground/60">Замеры и сметы</p>
+            <h1 className="text-base font-bold text-sidebar-foreground">Room App</h1>
+            <p className="text-[10px] text-sidebar-foreground/60">Замеры и сметы</p>
           </div>
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+      {/* Navigation - компактная */}
+      <nav className="flex-1 p-2 sm:p-3 space-y-0.5">
         {navItems.map((item) => {
           const isActive = location.pathname.startsWith(item.to)
           return (
@@ -65,36 +60,34 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               to={item.to}
               onClick={handleLinkClick}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200',
+                'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all',
                 isActive && 'bg-sidebar-accent text-sidebar-foreground font-medium'
               )}
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="w-4 h-4" />
               <span>{item.label}</span>
             </Link>
           )
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-sm font-medium text-sidebar-foreground">
+      {/* Footer - компактный */}
+      <div className="p-2 sm:p-3 border-t border-sidebar-border">
+        <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
+          <div className="w-7 h-7 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-medium text-sidebar-foreground">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user?.email || 'Пользователь'}
-            </p>
-            <p className="text-xs text-sidebar-foreground/60">Онлайн</p>
-          </div>
+          <p className="text-xs text-sidebar-foreground truncate flex-1">
+            {user?.email || 'Пользователь'}
+          </p>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full mt-2 px-4 py-2 text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg transition-all duration-200"
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-md transition-all"
         >
+          <LogOut className="w-3.5 h-3.5" />
           Выйти
         </button>
       </div>

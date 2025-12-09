@@ -1,8 +1,10 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useProjects } from '../hooks/useProjects'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Plus, FileText, Edit, Trash2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { LoadingBar } from '@/components/LoadingBar'
+import { ArrowLeft, Plus, FileText, Edit, Trash2, Square, Maximize2, Grid3X3, Layers } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useState } from 'react'
@@ -27,98 +29,140 @@ function ProjectsList() {
         setDeleteDialogOpen(false)
         setProjectToDelete(null)
       } catch (error: any) {
-        toast.error('Ошибка удаления: ' + error.message)
+        toast.error('Ошибка: ' + error.message)
       }
     }
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <Link to="/customers" className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-2">
+    <div className="w-full animate-fade-in">
+      <LoadingBar isLoading={isLoading || isDeleting} />
+      
+      {/* Компактный заголовок */}
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/customers')}
+            className="h-8 w-8 p-0 flex-shrink-0"
+          >
             <ArrowLeft className="h-4 w-4" />
-            Назад к клиентам
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Проекты</h1>
-          <p className="text-muted-foreground">Управление проектами клиента</p>
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Проекты</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Управление проектами</p>
+          </div>
         </div>
         <Button
           onClick={() => navigate(`/customers/${customerId}/projects/new`)}
-          className="gap-2"
+          size="sm"
+          className="gap-1.5"
         >
           <Plus className="h-4 w-4" />
-          Новый проект
+          <span className="hidden sm:inline">Новый</span>
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Загрузка...</div>
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 flex-1" />
+                  <Skeleton className="h-8 w-8" />
+                  <Skeleton className="h-8 w-8" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : projects.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground mb-4">Нет проектов</p>
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-muted-foreground mb-4 text-sm">Нет проектов</p>
           <Button
             onClick={() => navigate(`/customers/${customerId}/projects/new`)}
-            className="gap-2"
+            size="sm"
+            className="gap-1.5"
           >
             <Plus className="h-4 w-4" />
-            Создать первый проект
+            Создать первый
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <Card key={project.id} className="flex flex-col">
-              <CardContent className="p-6 flex flex-col flex-1">
-                <div className="flex-1 mb-4">
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+            <Card key={project.id} className="group hover:shadow-md transition-shadow">
+              <CardContent className="p-3 sm:p-4">
+                {/* Компактная сетка параметров */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                    <Square className="h-3.5 w-3.5 text-muted-foreground" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Площадь</p>
-                      <p className="text-lg font-semibold font-mono">{project.area.toFixed(2)} м²</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Периметр</p>
-                      <p className="text-lg font-semibold font-mono">{project.perimeter.toFixed(2)} м</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Углов</p>
-                      <p className="text-lg font-semibold">{project.points.length}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Элементов</p>
-                      <p className="text-lg font-semibold">{project.elementCount}</p>
+                      <p className="text-xs text-muted-foreground">Площадь</p>
+                      <p className="text-sm font-semibold font-mono">{project.area.toFixed(1)} м²</p>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Создан: {new Date(project.createdAt).toLocaleDateString('ru-RU')}
-                  </p>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                    <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Периметр</p>
+                      <p className="text-sm font-semibold font-mono">{project.perimeter.toFixed(1)} м</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                    <Grid3X3 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Углов</p>
+                      <p className="text-sm font-semibold">{project.points.length}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                    <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Элементов</p>
+                      <p className="text-sm font-semibold">{project.elementCount}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+
+                <p className="text-xs text-muted-foreground mb-3">
+                  {new Date(project.createdAt).toLocaleDateString('ru-RU')}
+                </p>
+
+                <div className="flex gap-1.5 sm:gap-2">
                   <Button
                     onClick={() => navigate(`/customers/${customerId}/projects/${String(project.id!)}/estimate`)}
-                    className="flex-1 min-w-0"
                     size="sm"
                     variant="outline"
+                    className="flex-1 h-8 text-xs sm:text-sm"
                   >
-                    <FileText className="h-4 w-4 mr-1" />
+                    <FileText className="h-3.5 w-3.5 mr-1" />
                     Смета
                   </Button>
                   <Button
                     onClick={() => navigate(`/customers/${customerId}/projects/${String(project.id!)}/edit`)}
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
-                    className="flex-shrink-0"
+                    className="h-8 w-8 p-0"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     onClick={() => handleDelete(String(project.id!))}
                     disabled={isDeleting}
-                    variant="destructive"
+                    variant="ghost"
                     size="sm"
-                    className="flex-shrink-0"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </CardContent>
@@ -128,16 +172,14 @@ function ProjectsList() {
       )}
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Подтвердите удаление</DialogTitle>
+            <DialogTitle>Удалить проект?</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p>Вы уверены, что хотите удалить этот проект? Это действие необратимо.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Отмена</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+          <p className="text-sm text-muted-foreground">Это действие необратимо.</p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setDeleteDialogOpen(false)}>Отмена</Button>
+            <Button variant="destructive" size="sm" onClick={confirmDelete} disabled={isDeleting}>
               {isDeleting ? 'Удаление...' : 'Удалить'}
             </Button>
           </DialogFooter>
@@ -148,4 +190,3 @@ function ProjectsList() {
 }
 
 export default ProjectsList
-
