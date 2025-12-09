@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 220 30% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 15%;
+
+    --primary: 220 60% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 90%;
+    --secondary-foreground: 220 30% 25%;
+
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 45%;
+
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 220 60% 35%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --canvas-bg: 220 20% 98%;
+    --canvas-grid: 220 15% 85%;
+    --canvas-point: 25 95% 53%;
+    --canvas-line: 220 60% 45%;
+    --canvas-fill: 220 60% 35%;
+
+    --sidebar-background: 220 25% 18%;
+    --sidebar-foreground: 220 15% 90%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 25% 25%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 220 25% 25%;
+    --sidebar-ring: 25 95% 53%;
+  }
+
+  .dark {
+    --background: 220 25% 10%;
+    --foreground: 220 15% 95%;
+
+    --card: 220 25% 14%;
+    --card-foreground: 220 15% 95%;
+
+    --popover: 220 25% 14%;
+    --popover-foreground: 220 15% 95%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 25% 20%;
+    --secondary-foreground: 220 15% 90%;
+
+    --muted: 220 25% 18%;
+    --muted-foreground: 220 15% 60%;
+
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 25% 22%;
+    --input: 220 25% 22%;
+    --ring: 25 95% 53%;
+
+    --canvas-bg: 220 25% 12%;
+    --canvas-grid: 220 25% 20%;
+    --canvas-point: 25 95% 53%;
+    --canvas-line: 220 50% 60%;
+    --canvas-fill: 220 50% 40%;
+
+    --sidebar-background: 220 25% 8%;
+    --sidebar-foreground: 220 15% 90%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 25% 15%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 220 25% 15%;
+    --sidebar-ring: 25 95% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+  
+  /* Улучшение работы на мобильных устройствах */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
