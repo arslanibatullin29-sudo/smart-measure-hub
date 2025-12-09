@@ -3,10 +3,13 @@ import { db, InstallationProfile, Material, Work, WorkMaterial } from '@/service
 import { findEntityById } from '@/shared/utils/dbHelpers'
 import { isUUID } from '@/shared/utils/uuid'
 
+// Кэш последней синхронизации
+let lastSyncTime: number = 0
+const SYNC_COOLDOWN = 30000 // 30 секунд между синхронизациями
+
 export const profileService = {
   // Профили
   async getProfile(userId: string): Promise<InstallationProfile | null> {
-    // Сначала ищем профиль по умолчанию
     const defaultProfile = await db.installationProfiles
       .where('userId').equals(userId)
       .and(p => p.isDefault === true)
@@ -14,17 +17,11 @@ export const profileService = {
     
     if (defaultProfile) return defaultProfile
     
-    // Если нет профиля по умолчанию, берем первый
     const profiles = await db.installationProfiles.where('userId').equals(userId).toArray()
     return profiles[0] || null
   },
 
   async getAllProfiles(userId: string): Promise<InstallationProfile[]> {
-    // Сначала синхронизируем с сервером, если онлайн
-    if (navigator.onLine) {
-      await this.syncAllFromServer(userId)
-    }
-    
     const profiles = await db.installationProfiles.where('userId').equals(userId).toArray()
     // Фильтруем дубликаты по id
     const uniqueProfiles = Array.from(
@@ -36,9 +33,7 @@ export const profileService = {
   async createProfile(userId: string, name: string, isDefault: boolean = false): Promise<InstallationProfile> {
     const now = new Date().toISOString()
     
-    // Если создаем профиль по умолчанию, сначала снимаем флаг с других профилей
     if (isDefault) {
-      // Снимаем флаг на сервере
       try {
         await supabase
           .from('installation_profiles')
@@ -49,7 +44,6 @@ export const profileService = {
         console.error('Ошибка при снятии флага is_default на сервере:', error)
       }
       
-      // Снимаем флаг локально
       const existingDefault = await db.installationProfiles
         .where('userId').equals(userId)
         .and(p => p.isDefault === true)
@@ -60,7 +54,6 @@ export const profileService = {
       }
     }
     
-    // Сразу создаем на сервере с UUID
     const { data: serverProfile, error } = await supabase
       .from('installation_profiles')
       .insert({
@@ -75,7 +68,6 @@ export const profileService = {
     
     if (error) throw error
     
-    // Сохраняем в локальную БД с серверным UUID
     const profile: InstallationProfile = {
       id: serverProfile.id,
       userId,
@@ -97,9 +89,7 @@ export const profileService = {
     const profile = await findEntityById<InstallationProfile>(db.installationProfiles, id)
     if (!profile) throw new Error('Профиль не найден')
 
-    // Если устанавливаем профиль по умолчанию, снимаем флаг с других
     if (data.isDefault === true) {
-      // Снимаем флаг на сервере
       try {
         await supabase
           .from('installation_profiles')
@@ -110,7 +100,6 @@ export const profileService = {
         console.error('Ошибка при снятии флага is_default на сервере:', error)
       }
       
-      // Снимаем флаг локально
       const existingDefault = await db.installationProfiles
         .where('userId').equals(profile.userId)
         .and(p => p.isDefault === true && String(p.id) !== String(id))
@@ -123,7 +112,6 @@ export const profileService = {
 
     const updated: InstallationProfile = { ...profile, ...data, updatedAt: now, syncStatus: 'synced' }
     
-    // Обновляем на сервере, если ID - UUID
     if (isUUID(profile.id)) {
       try {
         await supabase
@@ -148,10 +136,8 @@ export const profileService = {
     const profile = await findEntityById<InstallationProfile>(db.installationProfiles, id)
     if (!profile) return
     
-    // Удаляем на сервере, если UUID
     if (isUUID(profile.id)) {
       try {
-        // Сначала удаляем связанные материалы и работы на сервере
         await supabase.from('materials').delete().eq('profile_id', String(profile.id))
         await supabase.from('works').delete().eq('profile_id', String(profile.id))
         await supabase.from('installation_profiles').delete().eq('id', String(profile.id))
@@ -160,7 +146,6 @@ export const profileService = {
       }
     }
     
-    // Удаляем локально
     const works = await db.works.where('profileId').equals(String(id)).toArray()
     for (const work of works) {
       await db.workMaterials.where('workId').equals(String(work.id)).delete()
@@ -179,7 +164,6 @@ export const profileService = {
   async createMaterial(profileId: string, userId: string, data: Omit<Material, 'id' | 'profileId' | 'userId' | 'createdAt' | 'updatedAt' | 'syncStatus'>): Promise<Material> {
     const now = new Date().toISOString()
     
-    // Проверяем, что profileId - UUID
     let serverProfileId = profileId
     if (!isUUID(profileId)) {
       const profile = await findEntityById<InstallationProfile>(db.installationProfiles, profileId)
@@ -190,7 +174,6 @@ export const profileService = {
       }
     }
     
-    // Создаем на сервере
     const { data: serverMaterial, error } = await supabase
       .from('materials')
       .insert({
@@ -212,7 +195,6 @@ export const profileService = {
     
     if (error) throw error
     
-    // Сохраняем локально с серверным UUID
     const material: Material = {
       id: serverMaterial.id,
       profileId: serverProfileId,
@@ -234,7 +216,6 @@ export const profileService = {
 
     const updated: Material = { ...material, ...data, updatedAt: now, syncStatus: 'synced' }
     
-    // Обновляем на сервере, если UUID
     if (isUUID(material.id)) {
       try {
         const updateData: any = {
@@ -267,10 +248,8 @@ export const profileService = {
     const material = await findEntityById<Material>(db.materials, id)
     if (!material) return
     
-    // Удаляем связи workMaterials
     await db.workMaterials.where('materialId').equals(String(id)).delete()
     
-    // Удаляем на сервере, если UUID
     if (isUUID(material.id)) {
       try {
         await supabase.from('work_materials').delete().eq('material_id', String(material.id))
@@ -307,7 +286,6 @@ export const profileService = {
   async createWork(profileId: string, userId: string, data: Omit<Work, 'id' | 'profileId' | 'userId' | 'createdAt' | 'updatedAt' | 'syncStatus'>, materialIds: string[]): Promise<Work> {
     const now = new Date().toISOString()
     
-    // Проверяем, что profileId - UUID
     let serverProfileId = profileId
     if (!isUUID(profileId)) {
       const profile = await findEntityById<InstallationProfile>(db.installationProfiles, profileId)
@@ -318,7 +296,6 @@ export const profileService = {
       }
     }
     
-    // Создаем на сервере
     const { data: serverWork, error } = await supabase
       .from('works')
       .insert({
@@ -336,7 +313,6 @@ export const profileService = {
     
     if (error) throw error
     
-    // Сохраняем локально
     const work: Work = {
       id: serverWork.id,
       profileId: serverProfileId,
@@ -349,7 +325,6 @@ export const profileService = {
     
     await db.works.put(work)
     
-    // Создаем связи с материалами
     for (const materialId of materialIds) {
       await this.addMaterialToWork(String(serverWork.id), materialId)
     }
@@ -364,7 +339,6 @@ export const profileService = {
 
     const updated: Work = { ...work, ...data, updatedAt: now, syncStatus: 'synced' }
     
-    // Обновляем на сервере, если UUID
     if (isUUID(work.id)) {
       try {
         await supabase
@@ -386,12 +360,10 @@ export const profileService = {
     await db.works.update(work.id!, updated)
 
     if (materialIds !== undefined) {
-      // Удаляем старые связи
       await db.workMaterials.where('workId').equals(String(work.id)).delete()
       if (isUUID(work.id)) {
         await supabase.from('work_materials').delete().eq('work_id', String(work.id))
       }
-      // Создаём новые
       for (const materialId of materialIds) {
         await this.addMaterialToWork(String(work.id), materialId)
       }
@@ -404,10 +376,8 @@ export const profileService = {
     const work = await findEntityById<Work>(db.works, id)
     if (!work) return
     
-    // Удаляем связи workMaterials
     await db.workMaterials.where('workId').equals(String(id)).delete()
     
-    // Удаляем на сервере, если UUID
     if (isUUID(work.id)) {
       try {
         await supabase.from('work_materials').delete().eq('work_id', String(work.id))
@@ -424,7 +394,6 @@ export const profileService = {
   async addMaterialToWork(workId: string, materialId: string): Promise<WorkMaterial> {
     const now = new Date().toISOString()
     
-    // Создаем на сервере, если оба ID - UUID
     let serverWmId: string | undefined
     if (isUUID(workId) && isUUID(materialId)) {
       const { data: serverWm, error } = await supabase
@@ -461,412 +430,335 @@ export const profileService = {
     return wm
   },
 
-  // Синхронизация всех данных с сервера
-  async syncAllFromServer(userId: string): Promise<void> {
+  // Оптимизированная синхронизация - один запрос ко всем данным
+  async syncFromServer(userId: string, force: boolean = false): Promise<void> {
+    // Проверяем cooldown
+    const now = Date.now()
+    if (!force && now - lastSyncTime < SYNC_COOLDOWN) {
+      console.log('Синхронизация пропущена (cooldown)')
+      return
+    }
+    lastSyncTime = now
+
     try {
-      // 1. Загружаем профили с сервера
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('installation_profiles')
-        .select('*')
-        .eq('user_id', userId)
+      // Параллельно загружаем все данные одним batch запросом
+      const [profilesRes, materialsRes, worksRes, workMaterialsRes] = await Promise.all([
+        supabase.from('installation_profiles').select('*').eq('user_id', userId),
+        supabase.from('materials').select('*').eq('user_id', userId),
+        supabase.from('works').select('*').eq('user_id', userId),
+        supabase.from('work_materials').select('*'),
+      ])
 
-      if (profilesError) throw profilesError
+      if (profilesRes.error) throw profilesRes.error
+      if (materialsRes.error) throw materialsRes.error
+      if (worksRes.error) throw worksRes.error
+      if (workMaterialsRes.error) throw workMaterialsRes.error
 
-      // Получаем локальные профили
-      const localProfiles = await db.installationProfiles.where('userId').equals(userId).toArray()
-      const serverProfileIds = new Set((profilesData || []).map(p => p.id))
+      const serverProfiles = profilesRes.data || []
+      const serverMaterials = materialsRes.data || []
+      const serverWorks = worksRes.data || []
+      const serverWorkMaterials = workMaterialsRes.data || []
 
-      // Удаляем локальные профили, которых нет на сервере (были удалены)
-      for (const localProfile of localProfiles) {
-        if (isUUID(localProfile.id) && !serverProfileIds.has(String(localProfile.id))) {
-          // Профиль удален на сервере - удаляем локально
-          await db.workMaterials.where('workId').anyOf(
-            (await db.works.where('profileId').equals(String(localProfile.id)).toArray()).map(w => String(w.id))
-          ).delete()
-          await db.works.where('profileId').equals(String(localProfile.id)).delete()
-          await db.materials.where('profileId').equals(String(localProfile.id)).delete()
-          await db.installationProfiles.delete(localProfile.id!)
-        }
-      }
+      // Фильтруем workMaterials только для работ пользователя
+      const userWorkIds = new Set(serverWorks.map(w => w.id))
+      const userWorkMaterials = serverWorkMaterials.filter(wm => userWorkIds.has(wm.work_id))
 
-      // Добавляем/обновляем профили с сервера
-      for (const serverProfile of (profilesData || [])) {
-        const profile: InstallationProfile = {
-          id: serverProfile.id,
-          userId: serverProfile.user_id,
-          name: serverProfile.name,
-          isDefault: serverProfile.is_default || false,
-          createdAt: serverProfile.created_at ?? new Date().toISOString(),
-          updatedAt: serverProfile.updated_at ?? new Date().toISOString(),
-          lastSyncedAt: new Date().toISOString(),
-          syncStatus: 'synced',
+      // Batch операции с IndexedDB
+      await db.transaction('rw', [db.installationProfiles, db.materials, db.works, db.workMaterials], async () => {
+        // Обновляем профили
+        const serverProfileIds = new Set(serverProfiles.map(p => p.id))
+        const localProfiles = await db.installationProfiles.where('userId').equals(userId).toArray()
+        
+        // Удаляем удаленные на сервере
+        for (const local of localProfiles) {
+          if (isUUID(local.id) && !serverProfileIds.has(String(local.id))) {
+            await db.installationProfiles.delete(local.id!)
+          }
         }
         
-        await db.installationProfiles.put(profile)
-      }
-
-      // 2. Загружаем материалы с сервера
-      const { data: materialsData, error: materialsError } = await supabase
-        .from('materials')
-        .select('*')
-        .eq('user_id', userId)
-
-      if (materialsError) throw materialsError
-
-      // Удаляем локальные материалы, которых нет на сервере
-      const localMaterials = await db.materials.where('userId').equals(userId).toArray()
-      const serverMaterialIds = new Set((materialsData || []).map(m => m.id))
-      
-      for (const localMaterial of localMaterials) {
-        if (isUUID(localMaterial.id) && !serverMaterialIds.has(String(localMaterial.id))) {
-          await db.workMaterials.where('materialId').equals(String(localMaterial.id)).delete()
-          await db.materials.delete(localMaterial.id!)
+        // Добавляем/обновляем
+        for (const sp of serverProfiles) {
+          await db.installationProfiles.put({
+            id: sp.id,
+            userId: sp.user_id,
+            name: sp.name,
+            isDefault: sp.is_default || false,
+            createdAt: sp.created_at ?? new Date().toISOString(),
+            updatedAt: sp.updated_at ?? new Date().toISOString(),
+            lastSyncedAt: new Date().toISOString(),
+            syncStatus: 'synced',
+          })
         }
-      }
 
-      // Добавляем/обновляем материалы с сервера
-      for (const serverMaterial of (materialsData || [])) {
-        const material: Material = {
-          id: serverMaterial.id,
-          profileId: serverMaterial.profile_id,
-          userId: serverMaterial.user_id,
-          name: serverMaterial.name,
-          unit: serverMaterial.unit,
-          price: serverMaterial.price,
-          purchasePrice: serverMaterial.purchase_price ?? undefined,
-          totalCost: serverMaterial.total_cost ?? undefined,
-          calculationType: (serverMaterial.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
-          coefficient: serverMaterial.coefficient ?? 1,
-          initialQuantity: serverMaterial.initial_quantity ?? undefined,
-          createdAt: serverMaterial.created_at ?? new Date().toISOString(),
-          updatedAt: serverMaterial.updated_at ?? new Date().toISOString(),
-          syncStatus: 'synced',
+        // Обновляем материалы
+        const serverMaterialIds = new Set(serverMaterials.map(m => m.id))
+        const localMaterials = await db.materials.where('userId').equals(userId).toArray()
+        
+        for (const local of localMaterials) {
+          if (isUUID(local.id) && !serverMaterialIds.has(String(local.id))) {
+            await db.materials.delete(local.id!)
+          }
         }
         
-        await db.materials.put(material)
-      }
-
-      // 3. Загружаем работы с сервера
-      const { data: worksData, error: worksError } = await supabase
-        .from('works')
-        .select('*')
-        .eq('user_id', userId)
-
-      if (worksError) throw worksError
-
-      // Удаляем локальные работы, которых нет на сервере
-      const localWorks = await db.works.where('userId').equals(userId).toArray()
-      const serverWorkIds = new Set((worksData || []).map(w => w.id))
-      
-      for (const localWork of localWorks) {
-        if (isUUID(localWork.id) && !serverWorkIds.has(String(localWork.id))) {
-          await db.workMaterials.where('workId').equals(String(localWork.id)).delete()
-          await db.works.delete(localWork.id!)
+        for (const sm of serverMaterials) {
+          await db.materials.put({
+            id: sm.id,
+            profileId: sm.profile_id,
+            userId: sm.user_id,
+            name: sm.name,
+            unit: sm.unit,
+            price: sm.price,
+            purchasePrice: sm.purchase_price ?? undefined,
+            totalCost: sm.total_cost ?? undefined,
+            calculationType: (sm.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
+            coefficient: sm.coefficient ?? 1,
+            initialQuantity: sm.initial_quantity ?? undefined,
+            createdAt: sm.created_at ?? new Date().toISOString(),
+            updatedAt: sm.updated_at ?? new Date().toISOString(),
+            syncStatus: 'synced',
+          })
         }
-      }
 
-      // Добавляем/обновляем работы с сервера
-      for (const serverWork of (worksData || [])) {
-        const work: Work = {
-          id: serverWork.id,
-          profileId: serverWork.profile_id,
-          userId: serverWork.user_id,
-          name: serverWork.name,
-          unit: serverWork.unit,
-          workPrice: serverWork.work_price,
-          calculationType: (serverWork.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
-          createdAt: serverWork.created_at ?? new Date().toISOString(),
-          updatedAt: serverWork.updated_at ?? new Date().toISOString(),
-          syncStatus: 'synced',
+        // Обновляем работы
+        const serverWorkIds = new Set(serverWorks.map(w => w.id))
+        const localWorks = await db.works.where('userId').equals(userId).toArray()
+        
+        for (const local of localWorks) {
+          if (isUUID(local.id) && !serverWorkIds.has(String(local.id))) {
+            await db.works.delete(local.id!)
+          }
         }
         
-        await db.works.put(work)
-      }
+        for (const sw of serverWorks) {
+          await db.works.put({
+            id: sw.id,
+            profileId: sw.profile_id,
+            userId: sw.user_id,
+            name: sw.name,
+            unit: sw.unit,
+            workPrice: sw.work_price,
+            calculationType: (sw.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
+            createdAt: sw.created_at ?? new Date().toISOString(),
+            updatedAt: sw.updated_at ?? new Date().toISOString(),
+            syncStatus: 'synced',
+          })
+        }
 
-      // 4. Загружаем связи work_materials с сервера
-      const { data: workMaterialsData, error: wmError } = await supabase
-        .from('work_materials')
-        .select('*')
-
-      if (wmError) throw wmError
-
-      // Фильтруем только те связи, которые относятся к работам пользователя
-      const userWorkIds = new Set((worksData || []).map(w => w.id))
-      const userWorkMaterials = (workMaterialsData || []).filter(wm => userWorkIds.has(wm.work_id))
-
-      // Очищаем локальные связи и добавляем с сервера
-      for (const workId of serverWorkIds) {
-        await db.workMaterials.where('workId').equals(workId).delete()
-      }
-
-      for (const serverWm of userWorkMaterials) {
-        const wm: WorkMaterial = {
-          id: serverWm.id,
-          workId: serverWm.work_id,
-          materialId: serverWm.material_id,
-          quantity: serverWm.quantity ?? 1,
-          calculationOverride: serverWm.calculation_override ?? null,
-          createdAt: serverWm.created_at ?? new Date().toISOString(),
-          syncStatus: 'synced',
+        // Обновляем workMaterials
+        for (const workId of serverWorkIds) {
+          await db.workMaterials.where('workId').equals(workId).delete()
         }
         
-        await db.workMaterials.put(wm)
-      }
-
-      // Удаляем дубликаты профилей с числовыми ID, если есть UUID версии
-      const allLocalProfiles = await db.installationProfiles.where('userId').equals(userId).toArray()
-      const uuidProfiles = allLocalProfiles.filter(p => isUUID(p.id))
-      const numericProfiles = allLocalProfiles.filter(p => !isUUID(p.id))
-      
-      for (const numProfile of numericProfiles) {
-        // Если есть профиль с таким же именем и UUID - удаляем числовой
-        const hasDuplicate = uuidProfiles.some(p => p.name === numProfile.name)
-        if (hasDuplicate) {
-          await db.installationProfiles.delete(numProfile.id!)
+        for (const swm of userWorkMaterials) {
+          await db.workMaterials.put({
+            id: swm.id,
+            workId: swm.work_id,
+            materialId: swm.material_id,
+            quantity: swm.quantity ?? 1,
+            calculationOverride: swm.calculation_override ?? null,
+            createdAt: swm.created_at ?? new Date().toISOString(),
+            syncStatus: 'synced',
+          })
         }
-      }
+      })
 
     } catch (error) {
       console.error('Ошибка синхронизации с сервера:', error)
     }
   },
 
-  // Принудительная синхронизация локальных данных с сервером
-  async forceSyncLocalToServer(userId: string): Promise<{ synced: number; errors: number }> {
-    let synced = 0
-    let errors = 0
-
+  // Синхронизация локальных данных на сервер (фоновая)
+  async syncLocalToServer(userId: string): Promise<void> {
     try {
-      // 1. Синхронизируем профили без UUID
+      // Синхронизируем только записи без UUID (локальные)
       const localProfiles = await db.installationProfiles.where('userId').equals(userId).toArray()
-      for (const profile of localProfiles) {
-        if (!isUUID(profile.id)) {
-          // Создаем на сервере
-          const now = new Date().toISOString()
-          const { data: serverProfile, error } = await supabase
-            .from('installation_profiles')
-            .insert({
-              user_id: userId,
-              name: profile.name,
-              is_default: profile.isDefault,
-              created_at: profile.createdAt || now,
-              updated_at: now,
-            })
-            .select()
-            .single()
-          
-          if (error) {
-            console.error('Ошибка синхронизации профиля:', error)
-            errors++
-            continue
-          }
+      const unsyncedProfiles = localProfiles.filter(p => !isUUID(p.id))
 
-          // Обновляем связанные материалы и работы с новым profileId
-          const oldProfileId = String(profile.id)
-          const newProfileId = serverProfile.id
-
-          // Обновляем материалы
-          const profileMaterials = await db.materials.where('profileId').equals(oldProfileId).toArray()
-          for (const mat of profileMaterials) {
-            await db.materials.update(mat.id!, { profileId: newProfileId })
-          }
-
-          // Обновляем работы
-          const profileWorks = await db.works.where('profileId').equals(oldProfileId).toArray()
-          for (const work of profileWorks) {
-            await db.works.update(work.id!, { profileId: newProfileId })
-          }
-
-          // Удаляем старый профиль и добавляем новый
-          await db.installationProfiles.delete(profile.id!)
-          await db.installationProfiles.put({
-            ...profile,
-            id: newProfileId,
-            lastSyncedAt: now,
-            syncStatus: 'synced',
+      for (const profile of unsyncedProfiles) {
+        const now = new Date().toISOString()
+        const { data: serverProfile, error } = await supabase
+          .from('installation_profiles')
+          .insert({
+            user_id: userId,
+            name: profile.name,
+            is_default: profile.isDefault,
+            created_at: profile.createdAt || now,
+            updated_at: now,
           })
-
-          synced++
+          .select()
+          .single()
+        
+        if (error) {
+          console.error('Ошибка синхронизации профиля:', error)
+          continue
         }
+
+        const oldProfileId = String(profile.id)
+        const newProfileId = serverProfile.id
+
+        // Обновляем связи
+        const profileMaterials = await db.materials.where('profileId').equals(oldProfileId).toArray()
+        for (const mat of profileMaterials) {
+          await db.materials.update(mat.id!, { profileId: newProfileId })
+        }
+
+        const profileWorks = await db.works.where('profileId').equals(oldProfileId).toArray()
+        for (const work of profileWorks) {
+          await db.works.update(work.id!, { profileId: newProfileId })
+        }
+
+        await db.installationProfiles.delete(profile.id!)
+        await db.installationProfiles.put({
+          ...profile,
+          id: newProfileId,
+          lastSyncedAt: now,
+          syncStatus: 'synced',
+        })
       }
 
-      // 2. Синхронизируем материалы без UUID
+      // Синхронизируем материалы
       const localMaterials = await db.materials.toArray()
-      for (const material of localMaterials) {
-        if (!isUUID(material.id) && isUUID(material.profileId)) {
-          const now = new Date().toISOString()
-          const { data: serverMaterial, error } = await supabase
-            .from('materials')
-            .insert({
-              profile_id: material.profileId,
-              user_id: material.userId,
-              name: material.name,
-              unit: material.unit,
-              price: material.price,
-              purchase_price: material.purchasePrice,
-              total_cost: material.totalCost,
-              calculation_type: material.calculationType,
-              coefficient: material.coefficient || 1,
-              initial_quantity: material.initialQuantity,
-              created_at: material.createdAt || now,
-              updated_at: now,
-            })
-            .select()
-            .single()
-          
-          if (error) {
-            console.error('Ошибка синхронизации материала:', error)
-            errors++
-            continue
-          }
+      const unsyncedMaterials = localMaterials.filter(m => !isUUID(m.id) && isUUID(m.profileId))
 
-          // Обновляем связи workMaterials
-          const oldMaterialId = String(material.id)
-          const workMats = await db.workMaterials.where('materialId').equals(oldMaterialId).toArray()
-          for (const wm of workMats) {
-            await db.workMaterials.update(wm.id!, { materialId: serverMaterial.id })
-          }
-
-          // Удаляем старый и добавляем новый
-          await db.materials.delete(material.id!)
-          await db.materials.put({
-            ...material,
-            id: serverMaterial.id,
-            syncStatus: 'synced',
+      for (const material of unsyncedMaterials) {
+        const now = new Date().toISOString()
+        const { data: serverMaterial, error } = await supabase
+          .from('materials')
+          .insert({
+            profile_id: material.profileId,
+            user_id: material.userId,
+            name: material.name,
+            unit: material.unit,
+            price: material.price,
+            purchase_price: material.purchasePrice,
+            total_cost: material.totalCost,
+            calculation_type: material.calculationType,
+            coefficient: material.coefficient || 1,
+            initial_quantity: material.initialQuantity,
+            created_at: material.createdAt || now,
+            updated_at: now,
           })
+          .select()
+          .single()
 
-          synced++
+        if (error) {
+          console.error('Ошибка синхронизации материала:', error)
+          continue
         }
+
+        const oldMaterialId = String(material.id)
+        const newMaterialId = serverMaterial.id
+
+        const relatedWms = await db.workMaterials.where('materialId').equals(oldMaterialId).toArray()
+        for (const wm of relatedWms) {
+          await db.workMaterials.update(wm.id!, { materialId: newMaterialId })
+        }
+
+        await db.materials.delete(material.id!)
+        await db.materials.put({
+          ...material,
+          id: newMaterialId,
+          updatedAt: now,
+          syncStatus: 'synced',
+        })
       }
 
-      // 3. Синхронизируем работы без UUID
+      // Синхронизируем работы
       const localWorks = await db.works.toArray()
-      for (const work of localWorks) {
-        if (!isUUID(work.id) && isUUID(work.profileId)) {
-          const now = new Date().toISOString()
-          const { data: serverWork, error } = await supabase
-            .from('works')
-            .insert({
-              profile_id: work.profileId,
-              user_id: work.userId,
-              name: work.name,
-              unit: work.unit || '',
-              work_price: work.workPrice || 0,
-              calculation_type: work.calculationType || 'byArea',
-              created_at: work.createdAt || now,
-              updated_at: now,
-            })
-            .select()
-            .single()
-          
-          if (error) {
-            console.error('Ошибка синхронизации работы:', error)
-            errors++
-            continue
-          }
+      const unsyncedWorks = localWorks.filter(w => !isUUID(w.id) && isUUID(w.profileId))
 
-          // Обновляем связи workMaterials
-          const oldWorkId = String(work.id)
-          const workMats = await db.workMaterials.where('workId').equals(oldWorkId).toArray()
-          for (const wm of workMats) {
-            await db.workMaterials.update(wm.id!, { workId: serverWork.id })
-          }
-
-          // Удаляем старую и добавляем новую
-          await db.works.delete(work.id!)
-          await db.works.put({
-            ...work,
-            id: serverWork.id,
-            syncStatus: 'synced',
+      for (const work of unsyncedWorks) {
+        const now = new Date().toISOString()
+        const { data: serverWork, error } = await supabase
+          .from('works')
+          .insert({
+            profile_id: work.profileId,
+            user_id: work.userId,
+            name: work.name,
+            unit: work.unit || '',
+            work_price: work.workPrice || 0,
+            calculation_type: work.calculationType || 'byArea',
+            created_at: work.createdAt || now,
+            updated_at: now,
           })
+          .select()
+          .single()
 
-          synced++
+        if (error) {
+          console.error('Ошибка синхронизации работы:', error)
+          continue
         }
+
+        const oldWorkId = String(work.id)
+        const newWorkId = serverWork.id
+
+        const relatedWms = await db.workMaterials.where('workId').equals(oldWorkId).toArray()
+        for (const wm of relatedWms) {
+          await db.workMaterials.update(wm.id!, { workId: newWorkId })
+        }
+
+        await db.works.delete(work.id!)
+        await db.works.put({
+          ...work,
+          id: newWorkId,
+          updatedAt: now,
+          syncStatus: 'synced',
+        })
       }
 
-      // 4. Синхронизируем workMaterials без UUID
-      const localWorkMaterials = await db.workMaterials.toArray()
-      for (const wm of localWorkMaterials) {
-        if (!isUUID(wm.id) && isUUID(wm.workId) && isUUID(wm.materialId)) {
-          const now = new Date().toISOString()
-          const { data: serverWm, error } = await supabase
-            .from('work_materials')
-            .insert({
-              work_id: wm.workId,
-              material_id: wm.materialId,
-              quantity: wm.quantity || 1,
-              calculation_override: wm.calculationOverride,
-              created_at: wm.createdAt || now,
-            })
-            .select()
-            .single()
-          
-          if (error) {
-            console.error('Ошибка синхронизации work_material:', error)
-            errors++
-            continue
-          }
+      // Синхронизируем workMaterials
+      const localWms = await db.workMaterials.toArray()
+      const unsyncedWms = localWms.filter(wm => !isUUID(wm.id) && isUUID(wm.workId) && isUUID(wm.materialId))
 
-          // Удаляем старую и добавляем новую
-          await db.workMaterials.delete(wm.id!)
-          await db.workMaterials.put({
-            ...wm,
-            id: serverWm.id,
-            syncStatus: 'synced',
+      for (const wm of unsyncedWms) {
+        const now = new Date().toISOString()
+        const { data: serverWm, error } = await supabase
+          .from('work_materials')
+          .insert({
+            work_id: wm.workId,
+            material_id: wm.materialId,
+            quantity: wm.quantity || 1,
+            calculation_override: wm.calculationOverride,
+            created_at: wm.createdAt || now,
           })
+          .select()
+          .single()
 
-          synced++
+        if (error) {
+          console.error('Ошибка синхронизации workMaterial:', error)
+          continue
         }
+
+        await db.workMaterials.delete(wm.id!)
+        await db.workMaterials.put({
+          ...wm,
+          id: serverWm.id,
+          syncStatus: 'synced',
+        })
       }
 
     } catch (error) {
-      console.error('Ошибка принудительной синхронизации:', error)
-      errors++
+      console.error('Ошибка синхронизации на сервер:', error)
     }
-
-    return { synced, errors }
   },
 
   // Устаревшие методы для обратной совместимости
-  async syncProfileToServer(_profile: InstallationProfile): Promise<void> {
-    // Теперь синхронизация происходит сразу при создании/обновлении
+  async syncAllFromServer(userId: string): Promise<void> {
+    return this.syncFromServer(userId, true)
   },
 
-  async deleteProfileFromServer(_profile: InstallationProfile): Promise<void> {
-    if (isUUID(_profile.id)) {
-      try {
-        await supabase.from('installation_profiles').delete().eq('id', String(_profile.id))
-      } catch (error) {
-        console.error('Ошибка удаления профиля на сервере:', error)
-      }
-    }
+  async forceSyncLocalToServer(userId: string): Promise<{ synced: number; errors: number }> {
+    await this.syncLocalToServer(userId)
+    return { synced: 0, errors: 0 }
   },
 
-  async deleteMaterialFromServer(_material: Material): Promise<void> {
-    if (isUUID(_material.id)) {
-      try {
-        await supabase.from('materials').delete().eq('id', String(_material.id))
-      } catch (error) {
-        console.error('Ошибка удаления материала на сервере:', error)
-      }
-    }
-  },
-
-  async syncMaterialToServer(_material: Material): Promise<void> {
-    // Теперь синхронизация происходит сразу при создании/обновлении
-  },
-
-  async syncWorkToServer(_work: Work): Promise<void> {
-    // Теперь синхронизация происходит сразу при создании/обновлении
-  },
-
-  async deleteWorkFromServer(_work: Work): Promise<void> {
-    if (isUUID(_work.id)) {
-      try {
-        await supabase.from('works').delete().eq('id', String(_work.id))
-      } catch (error) {
-        console.error('Ошибка удаления работы на сервере:', error)
-      }
+  deleteProfileFromServer: async (id: string): Promise<void> => {
+    try {
+      await supabase.from('materials').delete().eq('profile_id', id)
+      await supabase.from('works').delete().eq('profile_id', id)
+      await supabase.from('installation_profiles').delete().eq('id', id)
+    } catch (error) {
+      console.error('Ошибка удаления профиля на сервере:', error)
     }
   },
 }
