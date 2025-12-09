@@ -145,22 +145,15 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
       price: parseFloat(formData.get('price') as string),
       purchasePrice: formData.get('purchasePrice') ? parseFloat(formData.get('purchasePrice') as string) : undefined,
       totalCost: formData.get('totalCost') ? parseFloat(formData.get('totalCost') as string) : undefined,
-      calculationType: formData.get('calculationType') as 'byArea' | 'byPerimeter' | 'byCount',
+      calculationType: formData.get('calculationType') as 'byArea' | 'byPerimeter' | 'byCount' | 'fixed',
       coefficient: parseFloat(formData.get('coefficient') as string) || 1,
       initialQuantity: formData.get('initialQuantity') ? parseFloat(formData.get('initialQuantity') as string) : undefined,
     }
 
     try {
       const newMaterial = await profileService.createMaterial(profileId, userId, materialData)
-      // Создаем связь между работой и материалом
-      await db.workMaterials.add({
-        workId: String(selectedWorkId),
-        materialId: String(newMaterial.id),
-        quantity: 1,
-        calculationOverride: null,
-        createdAt: new Date().toISOString(),
-        syncStatus: 'pending' as const,
-      })
+      // Создаем связь между работой и материалом через сервис (который синхронизирует с сервером)
+      await profileService.addMaterialToWork(String(selectedWorkId), String(newMaterial.id))
       await triggerSync()
       setShowNewMaterialDialog(false)
       setSelectedWorkId(null)
