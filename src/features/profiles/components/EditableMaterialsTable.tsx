@@ -476,6 +476,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                 case 'byArea': return 'По площади'
                 case 'byPerimeter': return 'По периметру'
                 case 'byCount': return 'По количеству'
+                case 'fixed': return 'Фиксированное'
                 default: return type
               }
             }
@@ -577,6 +578,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                   <option value="byArea">По площади</option>
                   <option value="byPerimeter">По периметру</option>
                   <option value="byCount">По количеству</option>
+                  <option value="fixed">Фиксированное</option>
                 </select>
               </div>
             </div>
@@ -662,6 +664,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                   <option value="byArea">По площади</option>
                   <option value="byPerimeter">По периметру</option>
                   <option value="byCount">По количеству</option>
+                  <option value="fixed">Фиксированное</option>
                 </select>
               </div>
               <div>
@@ -729,6 +732,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                   <option value="byArea">По площади</option>
                   <option value="byPerimeter">По периметру</option>
                   <option value="byCount">По количеству</option>
+                  <option value="fixed">Фиксированное</option>
                 </select>
               </div>
               <div>
