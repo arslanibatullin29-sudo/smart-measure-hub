@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
 import { customersService } from '../services/customersService'
 import { Customer, CustomerFormData } from '../models/Customer'
 import { useAuth } from '@/features/auth/hooks/useAuth'

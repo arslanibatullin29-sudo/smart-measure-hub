@@ -72,7 +72,7 @@ export function useAutoSave<T extends { id?: string | number }>({
         handleError(error, 'Ошибка автосохранения', `Ошибка сохранения: ${error.message}`)
         onUpdate()
       }
-    }, debounceMs)
+    }, debounceMs) as unknown as number
 
     saveTimeouts.current.set(timeoutKey, timeout)
   }, [onSave, onUpdate, debounceMs, validateField])

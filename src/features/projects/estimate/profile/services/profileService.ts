@@ -450,11 +450,11 @@ export const profileService = {
     try {
       const profileHasUUID = profile.id && isUUID(profile.id)
       
-      if (profileHasUUID) {
+      if (profileHasUUID && profile.id) {
         const { error } = await supabase
           .from('installation_profiles')
           .delete()
-          .eq('id', profile.id)
+          .eq('id', String(profile.id))
         
         if (error) throw error
       }
@@ -476,7 +476,7 @@ export const profileService = {
         // Ищем профиль в локальной БД
         const profile = await findEntityById<InstallationProfile>(db.installationProfiles, material.profileId)
         if (profile && profile.id && isUUID(profile.id)) {
-          profileIdToUse = profile.id
+          profileIdToUse = String(profile.id)
         } else {
           // Если профиль еще не синхронизирован, пропускаем синхронизацию материала
           console.warn('Профиль еще не синхронизирован, пропускаем синхронизацию материала')
@@ -584,7 +584,7 @@ export const profileService = {
         // Ищем профиль в локальной БД
         const profile = await findEntityById<InstallationProfile>(db.installationProfiles, work.profileId)
         if (profile && profile.id && isUUID(profile.id)) {
-          profileIdToUse = profile.id
+          profileIdToUse = String(profile.id)
         } else {
           // Если профиль еще не синхронизирован, пропускаем синхронизацию работы
           console.warn('Профиль еще не синхронизирован, пропускаем синхронизацию работы')
@@ -679,7 +679,7 @@ export const profileService = {
         const { error } = await supabase
           .from('materials')
           .delete()
-          .eq('id', material.id)
+          .eq('id', String(material.id))
 
         if (error) throw error
       }
@@ -696,7 +696,7 @@ export const profileService = {
         const { error } = await supabase
           .from('works')
           .delete()
-          .eq('id', work.id)
+          .eq('id', String(work.id))
 
         if (error) throw error
       }
@@ -751,9 +751,9 @@ export const profileService = {
             userId: item.user_id,
             name: item.name,
             isDefault: item.is_default || false,
-            createdAt: item.created_at,
-            updatedAt: item.updated_at,
-            lastSyncedAt: item.last_synced_at,
+            createdAt: item.created_at ?? new Date().toISOString(),
+            updatedAt: item.updated_at ?? new Date().toISOString(),
+            lastSyncedAt: item.last_synced_at ?? null,
             syncStatus: 'synced',
           }
 
@@ -762,7 +762,7 @@ export const profileService = {
             // Проверяем, что локальный профиль не был удален
             const isDeleted = deletedProfileIds.has(item.id)
             if (!isDeleted) {
-              const serverTime = new Date(item.updated_at).getTime()
+              const serverTime = new Date(item.updated_at ?? new Date()).getTime()
               const localTime = new Date(existing.updatedAt).getTime()
               if (serverTime > localTime) {
                 // Если локальный профиль имеет числовой ID, а серверный UUID, удаляем старый
@@ -819,20 +819,19 @@ export const profileService = {
             name: item.name,
             unit: item.unit,
             price: item.price,
-            purchasePrice: item.purchase_price,
-            totalCost: item.total_cost,
-            calculationType: item.calculation_type,
-            coefficient: item.coefficient,
-            initialQuantity: item.initial_quantity,
-            createdAt: item.created_at,
-            updatedAt: item.updated_at,
-            lastSyncedAt: item.last_synced_at,
+            purchasePrice: item.purchase_price ?? undefined,
+            totalCost: item.total_cost ?? undefined,
+            calculationType: (item.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
+            coefficient: item.coefficient ?? 1,
+            initialQuantity: item.initial_quantity ?? undefined,
+            createdAt: item.created_at ?? new Date().toISOString(),
+            updatedAt: item.updated_at ?? new Date().toISOString(),
             syncStatus: 'synced',
           }
 
           const existing = localByUuid.get(item.id)
           if (existing) {
-            const serverTime = new Date(item.updated_at).getTime()
+            const serverTime = new Date(item.updated_at ?? new Date()).getTime()
             const localTime = new Date(existing.updatedAt).getTime()
             if (serverTime > localTime) {
               await db.materials.put(material)
@@ -869,16 +868,15 @@ export const profileService = {
             name: item.name,
             unit: item.unit,
             workPrice: item.work_price,
-            calculationType: item.calculation_type,
-            createdAt: item.created_at,
-            updatedAt: item.updated_at,
-            lastSyncedAt: item.last_synced_at,
+            calculationType: (item.calculation_type as 'byArea' | 'byPerimeter' | 'byCount') || 'byArea',
+            createdAt: item.created_at ?? new Date().toISOString(),
+            updatedAt: item.updated_at ?? new Date().toISOString(),
             syncStatus: 'synced',
           }
 
           const existing = localByUuid.get(item.id)
           if (existing) {
-            const serverTime = new Date(item.updated_at).getTime()
+            const serverTime = new Date(item.updated_at ?? new Date()).getTime()
             const localTime = new Date(existing.updatedAt).getTime()
             if (serverTime > localTime) {
               await db.works.put(work)
