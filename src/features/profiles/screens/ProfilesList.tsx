@@ -158,10 +158,16 @@ function ProfilesList() {
     const file = e.target.files?.[0]
     if (!file || !user?.id || !selectedProfile) return
 
+    // Проверяем онлайн режим - импорт требует подключения к серверу
+    if (!navigator.onLine) {
+      handleError(new Error('Для импорта требуется подключение к интернету'), 'Офлайн режим')
+      e.target.value = ''
+      return
+    }
+
     setImportingProfileId(selectedProfile.id as string | number)
     
     try {
-      handleInfo('Импорт...')
       console.log('Начало импорта для профиля:', selectedProfile.id, selectedProfile.name)
       const result = await importProfileFromExcel(file, user.id, selectedProfile.name, selectedProfile.id)
       console.log('Импорт завершен:', result)
@@ -169,14 +175,14 @@ function ProfilesList() {
       // Принудительно обновляем данные профиля
       setMaterials([])
       setWorks([])
-      await new Promise(resolve => setTimeout(resolve, 100)) // Небольшая задержка для обновления UI
+      await new Promise(resolve => setTimeout(resolve, 200))
       await loadProfileData(String(selectedProfile.id))
       
       handleSuccess(`Импорт: ${result.works.length} работ, ${result.materials.length} материалов`)
       setShowImportDialog(false)
     } catch (error: any) {
       console.error('Ошибка импорта:', error)
-      handleError(error, 'Ошибка импорта')
+      handleError(error, 'Ошибка импорта', error?.message)
     } finally {
       setImportingProfileId(null)
       e.target.value = ''
@@ -385,22 +391,31 @@ function ProfilesList() {
       </Dialog>
 
       {/* Диалог импорта */}
-      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+      <Dialog open={showImportDialog} onOpenChange={(open) => !importingProfileId && setShowImportDialog(open)}>
         <DialogContent className="max-w-sm">
+          <LoadingBar isLoading={!!importingProfileId} />
           <DialogHeader>
             <DialogTitle>Импорт из Excel</DialogTitle>
           </DialogHeader>
           <div className="py-3">
-            <Input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleImportExcel}
-              disabled={!!importingProfileId}
-              className="text-sm"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              Выберите файл Excel с данными профиля
-            </p>
+            {importingProfileId ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+                <p className="text-sm text-muted-foreground">Импорт данных...</p>
+              </div>
+            ) : (
+              <>
+                <Input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleImportExcel}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Выберите файл Excel с данными профиля
+                </p>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
