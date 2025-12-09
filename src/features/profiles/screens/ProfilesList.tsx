@@ -153,12 +153,10 @@ function ProfilesList() {
     }
     try {
       await profileService.updateProfile(profileId, { isDefault: true })
-      // Запускаем синхронизацию после обновления
-      const { syncService } = await import('@/services/sync/syncService')
-      await syncService.processSyncQueue()
-      await loadProfiles(false) // Не перевыбираем профиль автоматически
+      await loadProfiles(false) // Перезагружаем профили
       handleSuccess('Профиль установлен по умолчанию')
     } catch (error: any) {
+      await loadProfiles(false) // Перезагружаем в случае ошибки
       handleError(error, 'Ошибка обновления профиля', 'Ошибка обновления профиля: ' + error.message)
     }
   }
@@ -262,39 +260,17 @@ function ProfilesList() {
     try {
       const newProfile = await profileService.createProfile(user.id, name, isDefault)
       
-      // Оптимистично добавляем профиль в список
-      setProfiles(prev => {
-        // Проверяем, нет ли уже такого профиля
-        const exists = prev.find(p => String(p.id) === String(newProfile.id))
-        if (exists) return prev
-        return [...prev, newProfile]
-      })
-      
-      // Запускаем синхронизацию после создания профиля
-      const { syncService } = await import('@/services/sync/syncService')
-      await syncService.processSyncQueue()
-      
-      // После синхронизации обновляем профиль из БД (на случай если ID изменился на UUID)
-      const updatedProfile = await db.installationProfiles.get(newProfile.id as any)
-      if (updatedProfile) {
-        // Обновляем список профилей, заменяя старый на обновленный
-        setProfiles(prev => {
-          const filtered = prev.filter(p => String(p.id) !== String(newProfile.id))
-          // Проверяем, нет ли уже профиля с новым ID (если ID изменился)
-          const existsWithNewId = updatedProfile.id !== newProfile.id && 
-            prev.find(p => String(p.id) === String(updatedProfile.id))
-          if (existsWithNewId) return prev
-          return [...filtered, updatedProfile]
-        })
-        setSelectedProfile(updatedProfile)
-        await loadProfileData(String(updatedProfile.id))
-      } else {
-        setSelectedProfile(newProfile)
-        await loadProfileData(String(newProfile.id))
-      }
-      
       setShowProfileDialog(false)
       handleSuccess('Профиль создан')
+      
+      // Перезагружаем профили из БД для получения актуальных данных
+      await loadProfiles(false)
+      
+      // Выбираем созданный профиль
+      const allProfiles = await profileService.getAllProfiles(user.id)
+      const createdProfile = allProfiles.find(p => p.name === name) || newProfile
+      setSelectedProfile(createdProfile)
+      await loadProfileData(String(createdProfile.id))
     } catch (error: any) {
       // В случае ошибки перезагружаем профили
       await loadProfiles(false)
