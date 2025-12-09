@@ -15,7 +15,7 @@ export interface ExcelRow {
   price?: number // Цена продажи
   purchasePrice?: number // Стоимость закупа
   totalCost?: number // Общая себестоимость
-  calculationType?: 'byArea' | 'byPerimeter' | 'byCount' // Тип расчета
+  calculationType?: 'byArea' | 'byPerimeter' | 'byCount' | 'fixed' // Тип расчета
   coefficient?: number // Коэффициент умножения
 }
 
@@ -114,10 +114,12 @@ export async function importProfileFromExcel(
           if (!row || row.length === 0) continue
 
           // Парсим тип расчета
-          let calculationType: 'byArea' | 'byPerimeter' | 'byCount' = 'byArea'
+          let calculationType: 'byArea' | 'byPerimeter' | 'byCount' | 'fixed' = 'byArea'
           if (calcTypeIndex >= 0 && row[calcTypeIndex]) {
             const calcTypeStr = String(row[calcTypeIndex]).toLowerCase()
-            if (calcTypeStr.includes('площад') || calcTypeStr.includes('area')) {
+            if (calcTypeStr.includes('фиксир') || calcTypeStr.includes('fixed')) {
+              calculationType = 'fixed'
+            } else if (calcTypeStr.includes('площад') || calcTypeStr.includes('area')) {
               calculationType = 'byArea'
             } else if (calcTypeStr.includes('периметр') || calcTypeStr.includes('perimeter')) {
               calculationType = 'byPerimeter'
@@ -177,6 +179,26 @@ export async function importProfileFromExcel(
           
           profileId = existingProfileId
           
+          // УДАЛЯЕМ ВСЕ СТАРЫЕ ДАННЫЕ ПРОФИЛЯ перед импортом
+          console.log('Удаление старых данных профиля перед импортом...')
+          
+          // Получаем все работы профиля
+          const existingWorks = await db.works.where('profileId').equals(profileIdStr).toArray()
+          const existingWorkIds = existingWorks.map(w => String(w.id))
+          
+          // Удаляем связи workMaterials для этих работ
+          for (const workId of existingWorkIds) {
+            await db.workMaterials.where('workId').equals(workId).delete()
+          }
+          
+          // Удаляем работы профиля
+          await db.works.where('profileId').equals(profileIdStr).delete()
+          
+          // Удаляем материалы профиля
+          await db.materials.where('profileId').equals(profileIdStr).delete()
+          
+          console.log('Старые данные профиля удалены')
+          
           // Обновляем время изменения
           await db.installationProfiles.update(existingProfileId as any, {
             updatedAt: now,
@@ -220,11 +242,13 @@ export async function importProfileFromExcel(
               currentWork = worksByName.get(specificationName)!
             } else {
               // Создаем новую работу через profileService (синхронизирует с сервером)
+              // Для работ тип fixed не поддерживается, используем byArea по умолчанию
+              const workCalcType = row.calculationType === 'fixed' ? 'byArea' : (row.calculationType || 'byArea')
               const workData = {
                 name: specificationName,
                 unit: row.unit || '',
                 workPrice: row.price !== undefined ? row.price : 0,
-                calculationType: row.calculationType || 'byArea',
+                calculationType: workCalcType as 'byArea' | 'byPerimeter' | 'byCount',
               }
 
               currentWork = await profileService.createWork(String(profileId), userId, workData, [])
@@ -318,7 +342,8 @@ export async function exportProfileToExcel(
           'Стоимость закупа': wm.material.purchasePrice || 0,
           'Общая себестоимость': wm.material.totalCost || 0,
           'Тип расчета': wm.material.calculationType === 'byArea' ? 'По площади' : 
-                        wm.material.calculationType === 'byPerimeter' ? 'По периметру' : 'По количеству',
+                        wm.material.calculationType === 'byPerimeter' ? 'По периметру' : 
+                        wm.material.calculationType === 'fixed' ? 'Фиксированное' : 'По количеству',
           Коэффициент: wm.material.coefficient || 1,
         })
       }

@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils'
 
 interface CalculationTypeSelectProps {
-  value: 'byArea' | 'byPerimeter' | 'byCount' | string
-  onChange: (value: 'byArea' | 'byPerimeter' | 'byCount') => void
+  value: 'byArea' | 'byPerimeter' | 'byCount' | 'fixed' | string
+  onChange: (value: 'byArea' | 'byPerimeter' | 'byCount' | 'fixed') => void
   className?: string
 }
 
@@ -16,12 +16,13 @@ export function CalculationTypeSelect({ value, onChange, className }: Calculatio
   return (
     <select
       value={value || 'byArea'}
-      onChange={(e) => onChange(e.target.value as 'byArea' | 'byPerimeter' | 'byCount')}
+      onChange={(e) => onChange(e.target.value as 'byArea' | 'byPerimeter' | 'byCount' | 'fixed')}
       className={cn(defaultClasses, className)}
     >
       <option value="byArea">По площади</option>
       <option value="byPerimeter">По периметру</option>
       <option value="byCount">По количеству</option>
+      <option value="fixed">Фиксированное</option>
     </select>
   )
 }
