@@ -162,11 +162,20 @@ function ProfilesList() {
     
     try {
       handleInfo('Импорт...')
+      console.log('Начало импорта для профиля:', selectedProfile.id, selectedProfile.name)
       const result = await importProfileFromExcel(file, user.id, selectedProfile.name, selectedProfile.id)
+      console.log('Импорт завершен:', result)
+      
+      // Принудительно обновляем данные профиля
+      setMaterials([])
+      setWorks([])
+      await new Promise(resolve => setTimeout(resolve, 100)) // Небольшая задержка для обновления UI
       await loadProfileData(String(selectedProfile.id))
+      
       handleSuccess(`Импорт: ${result.works.length} работ, ${result.materials.length} материалов`)
       setShowImportDialog(false)
     } catch (error: any) {
+      console.error('Ошибка импорта:', error)
       handleError(error, 'Ошибка импорта')
     } finally {
       setImportingProfileId(null)

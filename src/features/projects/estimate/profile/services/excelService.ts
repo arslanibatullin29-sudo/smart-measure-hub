@@ -180,22 +180,30 @@ export async function importProfileFromExcel(
           profileId = existingProfileId
           
           // УДАЛЯЕМ ВСЕ СТАРЫЕ ДАННЫЕ ПРОФИЛЯ перед импортом
-          console.log('Удаление старых данных профиля перед импортом...')
+          console.log('Удаление старых данных профиля перед импортом...', { profileIdStr, existingProfileId })
           
-          // Получаем все работы профиля
-          const existingWorks = await db.works.where('profileId').equals(profileIdStr).toArray()
+          // Получаем все работы профиля (пробуем оба варианта - строку и число)
+          let existingWorks = await db.works.where('profileId').equals(profileIdStr).toArray()
+          if (existingWorks.length === 0 && typeof existingProfileId === 'number') {
+            existingWorks = await db.works.filter(w => w.profileId === profileIdStr || String(w.profileId) === profileIdStr).toArray()
+          }
+          console.log('Найдено работ для удаления:', existingWorks.length)
+          
           const existingWorkIds = existingWorks.map(w => String(w.id))
           
           // Удаляем связи workMaterials для этих работ
           for (const workId of existingWorkIds) {
-            await db.workMaterials.where('workId').equals(workId).delete()
+            const deleted = await db.workMaterials.where('workId').equals(workId).delete()
+            console.log(`Удалено связей для работы ${workId}:`, deleted)
           }
           
           // Удаляем работы профиля
-          await db.works.where('profileId').equals(profileIdStr).delete()
+          const deletedWorks = await db.works.where('profileId').equals(profileIdStr).delete()
+          console.log('Удалено работ:', deletedWorks)
           
           // Удаляем материалы профиля
-          await db.materials.where('profileId').equals(profileIdStr).delete()
+          const deletedMaterials = await db.materials.where('profileId').equals(profileIdStr).delete()
+          console.log('Удалено материалов:', deletedMaterials)
           
           console.log('Старые данные профиля удалены')
           
