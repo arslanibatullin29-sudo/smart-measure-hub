@@ -2,6 +2,8 @@ import * as XLSX from 'xlsx/xlsx.mjs';
 import { InstallationProfile, Material, Work } from '@/services/storage/indexedDB'
 import { db } from '@/services/storage/indexedDB'
 import { profileService } from './profileService'
+import { supabase } from '@/services/supabase/supabaseClient'
+import { isUUID } from '@/shared/utils/uuid'
 
 /**
  * Интерфейс для строки Excel файла
@@ -158,11 +160,10 @@ export async function importProfileFromExcel(
         // Создаем или используем существующий профиль
         const now = new Date().toISOString()
         let profile: InstallationProfile
-        let profileId: string | number
+        let profileId: string
 
         if (existingProfileId) {
           // Используем существующий профиль
-          // Пробуем найти профиль по ID (может быть число или строка)
           const profileIdStr = String(existingProfileId)
           profile = await db.installationProfiles.get(existingProfileId as any) as InstallationProfile
           
@@ -177,56 +178,101 @@ export async function importProfileFromExcel(
             throw new Error(`Профиль не найден. ID: ${existingProfileId}`)
           }
           
-          profileId = existingProfileId
+          // Используем ID профиля (должен быть UUID от сервера)
+          profileId = String(profile.id)
+          console.log('Импорт в существующий профиль:', { profileId, isUUID: isUUID(profileId) })
           
-          // УДАЛЯЕМ ВСЕ СТАРЫЕ ДАННЫЕ ПРОФИЛЯ перед импортом
-          console.log('Удаление старых данных профиля перед импортом...', { profileIdStr, existingProfileId })
-          
-          // Получаем все работы профиля (пробуем оба варианта - строку и число)
-          let existingWorks = await db.works.where('profileId').equals(profileIdStr).toArray()
-          if (existingWorks.length === 0 && typeof existingProfileId === 'number') {
-            existingWorks = await db.works.filter(w => w.profileId === profileIdStr || String(w.profileId) === profileIdStr).toArray()
+          // Проверяем что profileId является валидным UUID
+          if (!isUUID(profileId)) {
+            throw new Error('Профиль еще не синхронизирован с сервером. Пожалуйста, перезагрузите страницу.')
           }
+          
+          // УДАЛЯЕМ ВСЕ СТАРЫЕ ДАННЫЕ на СЕРВЕРЕ перед импортом
+          console.log('Удаление старых данных на сервере...')
+          try {
+            // Сначала удаляем work_materials (связи)
+            const { data: serverWorks } = await supabase
+              .from('works')
+              .select('id')
+              .eq('profile_id', profileId)
+            
+            if (serverWorks && serverWorks.length > 0) {
+              for (const sw of serverWorks) {
+                await supabase.from('work_materials').delete().eq('work_id', sw.id)
+              }
+            }
+            
+            // Удаляем работы и материалы с сервера
+            await supabase.from('works').delete().eq('profile_id', profileId)
+            await supabase.from('materials').delete().eq('profile_id', profileId)
+            console.log('Данные на сервере удалены')
+          } catch (serverError) {
+            console.error('Ошибка удаления на сервере:', serverError)
+            // Продолжаем, локальные данные всё равно удалим
+          }
+          
+          // УДАЛЯЕМ ВСЕ СТАРЫЕ ДАННЫЕ в IndexedDB
+          console.log('Удаление старых данных в IndexedDB...')
+          
+          // Получаем все работы профиля
+          const existingWorks = await db.works.filter(w => String(w.profileId) === profileId).toArray()
           console.log('Найдено работ для удаления:', existingWorks.length)
           
-          const existingWorkIds = existingWorks.map(w => String(w.id))
-          
           // Удаляем связи workMaterials для этих работ
-          for (const workId of existingWorkIds) {
-            const deleted = await db.workMaterials.where('workId').equals(workId).delete()
-            console.log(`Удалено связей для работы ${workId}:`, deleted)
+          for (const work of existingWorks) {
+            await db.workMaterials.where('workId').equals(String(work.id)).delete()
           }
           
-          // Удаляем работы профиля
-          const deletedWorks = await db.works.where('profileId').equals(profileIdStr).delete()
-          console.log('Удалено работ:', deletedWorks)
+          // Удаляем работы и материалы
+          for (const work of existingWorks) {
+            await db.works.delete(work.id!)
+          }
           
-          // Удаляем материалы профиля
-          const deletedMaterials = await db.materials.where('profileId').equals(profileIdStr).delete()
-          console.log('Удалено материалов:', deletedMaterials)
+          const existingMaterials = await db.materials.filter(m => String(m.profileId) === profileId).toArray()
+          console.log('Найдено материалов для удаления:', existingMaterials.length)
+          for (const mat of existingMaterials) {
+            await db.materials.delete(mat.id!)
+          }
           
           console.log('Старые данные профиля удалены')
           
           // Обновляем время изменения
-          await db.installationProfiles.update(existingProfileId as any, {
+          await db.installationProfiles.update(profile.id!, {
             updatedAt: now,
-            syncStatus: 'pending',
+            syncStatus: 'synced',
           })
-          profile = { ...profile, updatedAt: now, syncStatus: 'pending' }
+          profile = { ...profile, updatedAt: now, syncStatus: 'synced' }
         } else {
-          // Создаем новый профиль
-          const profileData = {
+          // Создаем новый профиль через сервер (чтобы получить UUID)
+          const { data: serverProfile, error } = await supabase
+            .from('installation_profiles')
+            .insert({
+              user_id: userId,
+              name: profileName,
+              is_default: false,
+              created_at: now,
+              updated_at: now,
+            })
+            .select()
+            .single()
+          
+          if (error) throw error
+          
+          profileId = serverProfile.id
+          
+          const profileData: InstallationProfile = {
+            id: profileId,
             userId,
             name: profileName,
+            isDefault: false,
             createdAt: now,
             updatedAt: now,
-            lastSyncedAt: null,
-            syncStatus: 'pending' as const,
+            lastSyncedAt: now,
+            syncStatus: 'synced',
           }
 
-          const newProfileId = await db.installationProfiles.add(profileData)
-          profileId = newProfileId as string | number
-          profile = { ...profileData, id: profileId }
+          await db.installationProfiles.put(profileData)
+          profile = profileData
         }
 
         const works: Work[] = []
