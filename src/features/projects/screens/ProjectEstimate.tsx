@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { projectsService } from '../services/projectsService'
@@ -6,18 +6,24 @@ import { customersService } from '@/features/customers/services/customersService
 import { estimateService } from '../estimate/services/estimateService'
 import { pdfService } from '@/features/pdf/services/pdfService'
 import { EstimateResult } from '../estimate/calculators/estimateCalculator'
+import { EditableEstimateTable } from '../estimate/components/EditableEstimateTable'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Download, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { Project } from '../models/Project'
 
 function ProjectEstimate() {
   const { customerId, projectId } = useParams<{ customerId: string; projectId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [estimate, setEstimate] = useState<EstimateResult | null>(null)
+  
+  const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
 
   useEffect(() => {
     if (projectId && user?.id) {
@@ -29,17 +35,64 @@ function ProjectEstimate() {
     if (!projectId || !user?.id) return
     setIsLoading(true)
     try {
-      const project = await projectsService.getById(projectId)
-      if (!project) {
+      const proj = await projectsService.getById(projectId)
+      if (!proj) {
         alert('Проект не найден')
         navigate(`/customers/${customerId}/projects`)
         return
       }
+      setProject(proj)
 
-      const result = await estimateService.calculate(project)
-      setEstimate(result)
+      // Проверяем, есть ли сохранённая смета в проекте
+      if (proj.estimateData) {
+        setEstimate(proj.estimateData as EstimateResult)
+      } else {
+        // Рассчитываем новую смету
+        const result = await estimateService.calculate(proj)
+        setEstimate(result)
+      }
     } catch (error: any) {
       toast.error('Ошибка расчёта сметы: ' + error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEstimateChange = (newEstimate: EstimateResult) => {
+    setEstimate(newEstimate)
+    setHasChanges(true)
+  }
+
+  const handleSaveEstimate = async () => {
+    if (!projectId || !estimate || !project) return
+
+    setIsSaving(true)
+    try {
+      await projectsService.update(projectId, {
+        ...project,
+        estimateData: estimate,
+      })
+      
+      setHasChanges(false)
+      toast.success('Смета сохранена')
+    } catch (error: any) {
+      toast.error('Ошибка сохранения сметы: ' + error.message)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRecalculate = async () => {
+    if (!project) return
+    
+    setIsLoading(true)
+    try {
+      const result = await estimateService.calculate(project)
+      setEstimate(result)
+      setHasChanges(true)
+      toast.success('Смета пересчитана')
+    } catch (error: any) {
+      toast.error('Ошибка пересчёта сметы: ' + error.message)
     } finally {
       setIsLoading(false)
     }
@@ -50,16 +103,16 @@ function ProjectEstimate() {
 
     setIsGenerating(true)
     try {
-      const project = await projectsService.getById(projectId)
+      const proj = await projectsService.getById(projectId)
       const customers = await customersService.getAll(user.id)
       const customer = customers.find((c) => c.id === customerId)
 
-      if (!project || !customer) {
+      if (!proj || !customer) {
         toast.error('Данные не найдены')
         return
       }
 
-      await pdfService.downloadPDF(customer, project, estimate)
+      await pdfService.downloadPDF(customer, proj, estimate)
       toast.success('PDF успешно сгенерирован')
     } catch (error: any) {
       toast.error('Ошибка генерации PDF: ' + error.message)
@@ -94,13 +147,34 @@ function ProjectEstimate() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Смета проекта</h1>
-          <p className="text-muted-foreground mt-1">Детальный расчет стоимости работ и материалов</p>
+          <p className="text-muted-foreground mt-1">
+            Детальный расчет стоимости работ и материалов
+            {hasChanges && <span className="text-orange-500 ml-2">(есть несохранённые изменения)</span>}
+          </p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate(`/customers/${customerId}/projects`)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Назад
           </Button>
+          <Button variant="outline" onClick={handleRecalculate} disabled={isLoading}>
+            Пересчитать
+          </Button>
+          {hasChanges && (
+            <Button onClick={handleSaveEstimate} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Сохранение...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Сохранить
+                </>
+              )}
+            </Button>
+          )}
           <Button onClick={handleGeneratePDF} disabled={isGenerating}>
             {isGenerating ? (
               <>
@@ -119,67 +193,13 @@ function ProjectEstimate() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Детализация сметы</CardTitle>
+          <CardTitle>Редактирование сметы</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b-2 border-border">
-                  <th className="p-3 text-left font-semibold">Наименование</th>
-                  <th className="p-3 text-center font-semibold">Ед.изм</th>
-                  <th className="p-3 text-right font-semibold">Кол-во</th>
-                  <th className="p-3 text-right font-semibold">Цена</th>
-                  <th className="p-3 text-right font-semibold">Сумма</th>
-                </tr>
-              </thead>
-              <tbody>
-                {estimate.items.map((item) => (
-                  <React.Fragment key={item.workId}>
-                    <tr className="border-b border-border">
-                      <td className="p-3 font-bold" colSpan={5}>
-                        {item.workName}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-3 pl-8">Работа</td>
-                      <td className="p-3 text-center">{item.workUnit}</td>
-                      <td className="p-3 text-right font-mono">{item.workQuantity.toFixed(2)}</td>
-                      <td className="p-3 text-right font-mono">{item.workPrice.toFixed(2)}</td>
-                      <td className="p-3 text-right font-mono">{item.workTotal.toFixed(2)}</td>
-                    </tr>
-                    {item.materials.map((material) => (
-                      <tr key={material.materialId} className="text-muted-foreground">
-                        <td className="p-3 pl-12">— {material.materialName}</td>
-                        <td className="p-3 text-center">{material.materialUnit}</td>
-                        <td className="p-3 text-right font-mono">{material.materialQuantity.toFixed(2)}</td>
-                        <td className="p-3 text-right font-mono">{material.materialPrice.toFixed(2)}</td>
-                        <td className="p-3 text-right font-mono">{material.materialTotal.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-muted/30 border-b border-border">
-                      <td className="p-3 font-semibold" colSpan={4}>
-                        Итого по работе:
-                      </td>
-                      <td className="p-3 text-right font-semibold font-mono">
-                        {item.workTotalWithMaterials.toFixed(2)} руб.
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-primary/10 border-t-2 border-primary font-bold text-lg">
-                  <td className="p-4" colSpan={4}>
-                    ИТОГО:
-                  </td>
-                  <td className="p-4 text-right font-mono">
-                    {estimate.total.toFixed(2)} руб.
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <EditableEstimateTable
+            estimate={estimate}
+            onEstimateChange={handleEstimateChange}
+          />
         </CardContent>
       </Card>
     </div>
@@ -187,4 +207,3 @@ function ProjectEstimate() {
 }
 
 export default ProjectEstimate
-

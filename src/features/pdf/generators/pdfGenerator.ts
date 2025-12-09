@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { Customer } from '@/features/customers/models/Customer'
 import { Project } from '@/features/projects/models/Project'
 import { EstimateResult } from '@/features/projects/estimate/calculators/estimateCalculator'
@@ -10,162 +11,172 @@ interface PDFData {
   organizationName?: string
 }
 
+// AutoTable handles Cyrillic via internal text encoding
+
 export class PDFGenerator {
   static generate(data: PDFData): jsPDF {
     const doc = new jsPDF()
+    
+    // Используем Helvetica - стандартный шрифт, который работает с Unicode через autoTable
+    doc.setFont('helvetica')
+    
     let yPos = 20
 
-    // Заголовок
+    // Заголовок (используем транслитерацию для text())
     doc.setFontSize(18)
-    doc.text('Смета на выполнение работ', 105, yPos, { align: 'center' })
+    doc.text('SMETA NA VYPOLNENIE RABOT', 105, yPos, { align: 'center' })
     yPos += 15
 
-    // Информация о клиенте
-    doc.setFontSize(14)
-    doc.text('Информация о клиенте:', 20, yPos)
-    yPos += 8
+    // Информация о клиенте через autoTable для поддержки кириллицы
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Информация о клиенте']],
+      body: [
+        [`ФИО: ${data.customer.fullName}`],
+        ...(data.customer.address ? [[`Адрес: ${data.customer.address}`]] : []),
+        ...(data.customer.phone ? [[`Телефон: ${data.customer.phone}`]] : []),
+        ...(data.customer.comment ? [[`Комментарий: ${data.customer.comment}`]] : []),
+      ],
+      theme: 'plain',
+      styles: {
+        font: 'helvetica',
+        fontSize: 11,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fontStyle: 'bold',
+        fontSize: 12,
+      },
+    })
 
-    doc.setFontSize(12)
-    doc.text(`ФИО: ${data.customer.fullName}`, 20, yPos)
-    yPos += 6
-    if (data.customer.address) {
-      doc.text(`Адрес: ${data.customer.address}`, 20, yPos)
-      yPos += 6
-    }
-    if (data.customer.phone) {
-      doc.text(`Телефон: ${data.customer.phone}`, 20, yPos)
-      yPos += 6
-    }
-    if (data.customer.comment) {
-      doc.text(`Комментарий: ${data.customer.comment}`, 20, yPos)
-      yPos += 6
-    }
-    yPos += 5
+    yPos = (doc as any).lastAutoTable.finalY + 10
 
-    // Информация о комнате
-    doc.setFontSize(14)
-    doc.text('Информация о помещении:', 20, yPos)
-    yPos += 8
+    // Информация о помещении
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Информация о помещении']],
+      body: [
+        [`Площадь: ${data.project.area.toFixed(2)} м²`],
+        [`Периметр: ${data.project.perimeter.toFixed(2)} м`],
+        [`Количество углов: ${data.project.points.length}`],
+        [`Количество элементов: ${data.project.elementCount}`],
+      ],
+      theme: 'plain',
+      styles: {
+        font: 'helvetica',
+        fontSize: 11,
+        cellPadding: 2,
+      },
+      headStyles: {
+        fontStyle: 'bold',
+        fontSize: 12,
+      },
+    })
 
-    doc.setFontSize(12)
-    doc.text(`Площадь: ${data.project.area.toFixed(2)} м²`, 20, yPos)
-    yPos += 6
-    doc.text(`Периметр: ${data.project.perimeter.toFixed(2)} м`, 20, yPos)
-    yPos += 6
-    doc.text(`Количество углов: ${data.project.points.length}`, 20, yPos)
-    yPos += 6
-    doc.text(`Количество элементов (светильники и др.): ${data.project.elementCount}`, 20, yPos)
-    yPos += 10
+    yPos = (doc as any).lastAutoTable.finalY + 10
 
     // Таблица сметы
-    doc.setFontSize(14)
-    doc.text('Смета:', 20, yPos)
-    yPos += 8
+    const tableBody: any[] = []
 
-    // Заголовки таблицы
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'bold')
-    const colWidths = [80, 20, 20, 25, 30]
-    const headers = ['Наименование', 'Ед.изм', 'Кол-во', 'Цена', 'Сумма']
-    let xPos = 20
-
-    headers.forEach((header, i) => {
-      doc.text(header || '', xPos, yPos)
-      xPos += colWidths[i]
-    })
-    yPos += 6
-
-    doc.setFont('helvetica', 'normal')
-    doc.setDrawColor(200, 200, 200)
-    doc.line(20, yPos - 2, 195, yPos - 2)
-
-    // Данные сметы
     for (const item of data.estimate.items) {
-      // Работа
-      if (yPos > 270) {
-        doc.addPage()
-        yPos = 20
-      }
-
-      xPos = 20
-      doc.setFont('helvetica', 'bold')
-      doc.text(item.workName || '', xPos, yPos)
-      yPos += 6
-
-      // Количество и цена работы
-      xPos = 20 + colWidths[0]
-      doc.setFont('helvetica', 'normal')
-      doc.text(item.workUnit || '', xPos, yPos)
-      xPos += colWidths[1]
-      doc.text(item.workQuantity.toFixed(2), xPos, yPos)
-      xPos += colWidths[2]
-      doc.text(item.workPrice.toFixed(2), xPos, yPos)
-      xPos += colWidths[3]
-      doc.text(item.workTotal.toFixed(2), xPos, yPos)
-      yPos += 5
+      // Строка работы (жирная)
+      tableBody.push([
+        { content: item.workName, styles: { fontStyle: 'bold' } },
+        { content: item.workUnit, styles: { fontStyle: 'bold' } },
+        { content: item.workQuantity.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: item.workPrice.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: item.workTotal.toFixed(2), styles: { fontStyle: 'bold', halign: 'right' } },
+      ])
 
       // Материалы для работы
       for (const material of item.materials) {
-        if (yPos > 270) {
-          doc.addPage()
-          yPos = 20
-        }
-
-        xPos = 30
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        doc.text(`  - ${material.materialName || ''}`, xPos, yPos)
-        xPos = 20 + colWidths[0]
-        doc.text(material.materialUnit || '', xPos, yPos)
-        xPos += colWidths[1]
-        doc.text(material.materialQuantity.toFixed(2), xPos, yPos)
-        xPos += colWidths[2]
-        doc.text(material.materialPrice.toFixed(2), xPos, yPos)
-        xPos += colWidths[3]
-        doc.text(material.materialTotal.toFixed(2), xPos, yPos)
-        yPos += 5
+        tableBody.push([
+          { content: `  — ${material.materialName}`, styles: { textColor: [100, 100, 100] } },
+          material.materialUnit,
+          { content: material.materialQuantity.toFixed(2), styles: { halign: 'right' } },
+          { content: material.materialPrice.toFixed(2), styles: { halign: 'right' } },
+          { content: material.materialTotal.toFixed(2), styles: { halign: 'right' } },
+        ])
       }
 
-      // Итоговая стоимость работы
-      if (yPos > 270) {
-        doc.addPage()
-        yPos = 20
-      }
-
-      xPos = 20 + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.text(`Итого по работе: ${item.workTotalWithMaterials.toFixed(2)}`, xPos - 30, yPos)
-      yPos += 8
-
-      doc.setDrawColor(200, 200, 200)
-      doc.line(20, yPos - 2, 195, yPos - 2)
-      yPos += 5
+      // Итого по работе
+      tableBody.push([
+        { content: '', colSpan: 4 },
+        { content: `Итого: ${item.workTotalWithMaterials.toFixed(2)}`, styles: { fontStyle: 'bold', halign: 'right' } },
+      ])
     }
 
-    // Итоговая стоимость
-    if (yPos > 250) {
-      doc.addPage()
-      yPos = 20
-    }
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Наименование', 'Ед.изм', 'Кол-во', 'Цена', 'Сумма']],
+      body: tableBody,
+      theme: 'striped',
+      styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [66, 66, 66],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { cellWidth: 70 },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 30, halign: 'right' },
+        4: { cellWidth: 35, halign: 'right' },
+      },
+    })
 
-    yPos += 10
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`ИТОГО: ${data.estimate.total.toFixed(2)} руб.`, 20, yPos)
+    yPos = (doc as any).lastAutoTable.finalY + 10
 
-    // Название организации (если указано)
+    // Итоговая сумма
+    autoTable(doc, {
+      startY: yPos,
+      body: [[
+        { content: 'ИТОГО:', styles: { fontStyle: 'bold', fontSize: 14 } },
+        { content: `${data.estimate.total.toFixed(2)} руб.`, styles: { fontStyle: 'bold', fontSize: 14, halign: 'right' } },
+      ]],
+      theme: 'plain',
+      styles: {
+        font: 'helvetica',
+        cellPadding: 5,
+      },
+      columnStyles: {
+        0: { cellWidth: 140 },
+        1: { cellWidth: 45 },
+      },
+    })
+
+    yPos = (doc as any).lastAutoTable.finalY + 10
+
+    // Название организации и дата
     if (data.organizationName) {
-      yPos += 15
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text(data.organizationName, 105, yPos, { align: 'center' })
+      autoTable(doc, {
+        startY: yPos,
+        body: [[data.organizationName]],
+        theme: 'plain',
+        styles: {
+          font: 'helvetica',
+          fontSize: 10,
+          halign: 'center',
+        },
+      })
+      yPos = (doc as any).lastAutoTable.finalY + 5
     }
 
-    // Дата
-    yPos += 10
-    doc.setFontSize(10)
-    doc.text(`Дата создания: ${new Date().toLocaleDateString('ru-RU')}`, 20, yPos)
+    autoTable(doc, {
+      startY: yPos,
+      body: [[`Дата создания: ${new Date().toLocaleDateString('ru-RU')}`]],
+      theme: 'plain',
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+      },
+    })
 
     return doc
   }
@@ -178,4 +189,3 @@ export class PDFGenerator {
     return doc.output('blob')
   }
 }
-
