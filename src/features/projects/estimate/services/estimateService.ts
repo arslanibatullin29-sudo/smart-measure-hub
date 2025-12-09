@@ -20,12 +20,14 @@ export const estimateService = {
       throw new Error('Монтажный профиль не найден. Создайте профиль в настройках или выберите профиль для проекта.')
     }
 
-    // Получаем материалы и работы
+    // Получаем материалы и работы для этого профиля
     const materials = await profileService.getMaterials(String(profile.id!))
     const works = await profileService.getWorks(String(profile.id!))
 
-    // Получаем связи работ и материалов
-    const workMaterials = await db.workMaterials.toArray()
+    // Получаем связи работ и материалов только для работ этого профиля
+    const workIds = works.map(w => String(w.id))
+    const allWorkMaterials = await db.workMaterials.toArray()
+    const workMaterials = allWorkMaterials.filter(wm => workIds.includes(String(wm.workId)))
 
     // Данные проекта
     const projectData = {
