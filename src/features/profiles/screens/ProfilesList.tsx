@@ -34,23 +34,22 @@ function ProfilesList() {
     if (!user?.id) return
     setIsLoading(true)
     try {
-      // Автоматическая синхронизация локальных данных при загрузке
+      // Одна оптимизированная синхронизация при загрузке
       if (navigator.onLine) {
-        await profileService.forceSyncLocalToServer(user.id)
+        await profileService.syncFromServer(user.id)
+        // Фоновая синхронизация локальных данных на сервер
+        profileService.syncLocalToServer(user.id).catch(console.error)
       }
       
       const allProfiles = await profileService.getAllProfiles(user.id)
       setProfiles(allProfiles)
       
-      // Если есть выбранный профиль, проверяем что он все еще существует
       if (selectedProfile) {
         const stillExists = allProfiles.find(p => String(p.id) === String(selectedProfile.id))
         if (stillExists) {
-          // Обновляем данные профиля
           setSelectedProfile(stillExists)
           await loadProfileData(String(stillExists.id))
         } else {
-          // Профиль удален, выбираем другой
           const defaultProfile = allProfiles.find(p => p.isDefault) || allProfiles[0]
           if (defaultProfile) {
             setSelectedProfile(defaultProfile)
@@ -62,7 +61,6 @@ function ProfilesList() {
           }
         }
       } else if (allProfiles.length > 0) {
-        // Выбираем профиль по умолчанию или первый
         const defaultProfile = allProfiles.find(p => p.isDefault) || allProfiles[0]
         setSelectedProfile(defaultProfile)
         await loadProfileData(String(defaultProfile.id))

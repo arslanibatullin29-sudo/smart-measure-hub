@@ -2,12 +2,12 @@ import { db, SyncQueue } from '@/services/storage/indexedDB'
 import { customersService } from '@/features/customers/services/customersService'
 import { projectsService } from '@/features/projects/services/projectsService'
 import { profileService } from '@/features/projects/estimate/profile/services/profileService'
+import { supabase } from '@/services/supabase/supabaseClient'
 
 export class SyncService {
   public isProcessing = false
   private maxRetries = 5
 
-  // Обработка всей очереди синхронизации
   async processSyncQueue(): Promise<void> {
     if (this.isProcessing) {
       console.log('Синхронизация уже выполняется, пропускаем...')
@@ -31,27 +31,21 @@ export class SyncService {
       for (const item of queue) {
         try {
           await this.syncItem(item)
-          // Удаляем из очереди после успешной синхронизации
           await db.syncQueue.delete(item.id!)
           console.log(`✓ Синхронизировано: ${item.table}/${item.recordId}`)
         } catch (error: any) {
           console.error(`✗ Ошибка синхронизации ${item.table}/${item.recordId}:`, error)
           
-          // Увеличиваем счетчик попыток
           const newRetries = (item.retries || 0) + 1
           
           if (newRetries >= this.maxRetries) {
-            // Слишком много попыток - удаляем из очереди и помечаем как ошибку
             console.error(`Превышено максимальное количество попыток для ${item.table}/${item.recordId}`)
             await db.syncQueue.delete(item.id!)
-            
-            // Помечаем запись как ошибку
             await this.markRecordAsError(item.table, item.recordId)
           } else {
-            // Обновляем счетчик попыток
             await db.syncQueue.update(item.id!, { 
               retries: newRetries,
-              timestamp: new Date().toISOString(), // Обновляем timestamp для повторной попытки
+              timestamp: new Date().toISOString(),
             })
           }
         }
@@ -61,7 +55,6 @@ export class SyncService {
     }
   }
 
-  // Синхронизация одного элемента
   private async syncItem(item: SyncQueue): Promise<void> {
     switch (item.table) {
       case 'customers':
@@ -82,25 +75,20 @@ export class SyncService {
 
       case 'materials':
         if (item.operation === 'delete') {
-          await profileService.deleteMaterialFromServer(item.data)
-        } else {
-          await profileService.syncMaterialToServer(item.data)
+          await supabase.from('materials').delete().eq('id', item.recordId)
         }
+        // Для update/create используем profileService.syncLocalToServer
         break
 
       case 'works':
         if (item.operation === 'delete') {
-          await profileService.deleteWorkFromServer(item.data)
-        } else {
-          await profileService.syncWorkToServer(item.data)
+          await supabase.from('works').delete().eq('id', item.recordId)
         }
         break
 
       case 'installation_profiles':
         if (item.operation === 'delete') {
-          await profileService.deleteProfileFromServer(item.data)
-        } else {
-          await profileService.syncProfileToServer(item.data)
+          await profileService.deleteProfileFromServer(item.recordId)
         }
         break
 
@@ -109,7 +97,6 @@ export class SyncService {
     }
   }
 
-  // Пометить запись как ошибка
   private async markRecordAsError(table: string, recordId: string): Promise<void> {
     try {
       switch (table) {
@@ -149,12 +136,10 @@ export class SyncService {
     }
   }
 
-  // Получить количество ожидающих элементов в очереди
   async getPendingCount(): Promise<number> {
     return await db.syncQueue.count()
   }
 
-  // Получить статус синхронизации
   async getSyncStatus(): Promise<{
     pending: number
     isProcessing: boolean
@@ -169,4 +154,3 @@ export class SyncService {
 }
 
 export const syncService = new SyncService()
-
