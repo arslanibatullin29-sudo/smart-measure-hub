@@ -11,7 +11,7 @@ export const pdfService = {
     estimate: EstimateResult,
     organizationName?: string
   ): Promise<Blob> {
-    const doc = PDFGenerator.generate({
+    const doc = await PDFGenerator.generate({
       customer,
       project,
       estimate,
@@ -39,7 +39,7 @@ export const pdfService = {
     estimate: EstimateResult,
     organizationName?: string
   ): Promise<void> {
-    const doc = PDFGenerator.generate({
+    const doc = await PDFGenerator.generate({
       customer,
       project,
       estimate,
@@ -50,4 +50,3 @@ export const pdfService = {
     PDFGenerator.savePDF(doc, filename)
   },
 }
-
