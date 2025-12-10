@@ -1,42 +1,44 @@
-import { Link, useLocation } from 'react-router-dom'
-import { Users, Settings, LogOut, Ruler } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useAuth } from '@/features/auth/hooks/useAuth'
-import { authService } from '@/features/auth/services/authService'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation } from "react-router-dom";
+import { Users, Settings, LogOut, Ruler } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { authService } from "@/features/auth/services/authService";
+import { useNavigate } from "react-router-dom";
 
 const navItems = [
-  { to: '/customers', icon: Users, label: 'Клиенты' },
-  { to: '/profiles', icon: Settings, label: 'Профили' },
-]
+  { to: "/customers", icon: Users, label: "Клиенты" },
+  { to: "/profiles", icon: Settings, label: "Профили" },
+];
 
 interface SidebarProps {
-  isOpen?: boolean
-  onClose?: () => void
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
-  const location = useLocation()
-  const { user } = useAuth()
-  const navigate = useNavigate()
+  const location = useLocation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await authService.signOut()
-    navigate('/login')
-  }
+    await authService.signOut();
+    navigate("/login");
+  };
 
   const handleLinkClick = () => {
     if (window.innerWidth < 1024 && onClose) {
-      onClose()
+      onClose();
     }
-  }
+  };
 
   return (
-    <aside className={cn(
-      "w-56 bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-50 border-r border-sidebar-border transition-transform duration-300 ease-in-out",
-      "lg:translate-x-0",
-      isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-    )}>
+    <aside
+      className={cn(
+        "w-56 bg-sidebar h-screen flex flex-col fixed left-0 top-0 z-50 border-r border-sidebar-border transition-transform duration-300 ease-in-out",
+        "lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+      )}
+    >
       {/* Logo - компактный */}
       <div className="p-3 sm:p-4 border-b border-sidebar-border">
         <Link to="/customers" className="flex items-center gap-2">
@@ -44,7 +46,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <Ruler className="w-4 h-4 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-sidebar-foreground">Room App</h1>
+            <h1 className="text-base font-bold text-sidebar-foreground">RumaRum</h1>
             <p className="text-[10px] text-sidebar-foreground/60">Замеры и сметы</p>
           </div>
         </Link>
@@ -53,21 +55,21 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       {/* Navigation - компактная */}
       <nav className="flex-1 p-2 sm:p-3 space-y-0.5">
         {navItems.map((item) => {
-          const isActive = location.pathname.startsWith(item.to)
+          const isActive = location.pathname.startsWith(item.to);
           return (
             <Link
               key={item.to}
               to={item.to}
               onClick={handleLinkClick}
               className={cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all',
-                isActive && 'bg-sidebar-accent text-sidebar-foreground font-medium'
+                "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all",
+                isActive && "bg-sidebar-accent text-sidebar-foreground font-medium",
               )}
             >
               <item.icon className="w-4 h-4" />
               <span>{item.label}</span>
             </Link>
-          )
+          );
         })}
       </nav>
 
@@ -76,12 +78,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
           <div className="w-7 h-7 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
             <span className="text-xs font-medium text-sidebar-foreground">
-              {user?.email?.charAt(0).toUpperCase() || 'U'}
+              {user?.email?.charAt(0).toUpperCase() || "U"}
             </span>
           </div>
-          <p className="text-xs text-sidebar-foreground truncate flex-1">
-            {user?.email || 'Пользователь'}
-          </p>
+          <p className="text-xs text-sidebar-foreground truncate flex-1">{user?.email || "Пользователь"}</p>
         </div>
         <button
           onClick={handleLogout}
@@ -92,6 +92,5 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </button>
       </div>
     </aside>
-  )
+  );
 }
-
