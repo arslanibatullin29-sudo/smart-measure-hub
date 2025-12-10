@@ -4,48 +4,60 @@ import { projectsService } from '@/features/projects/services/projectsService'
 import { profileService } from '@/features/projects/estimate/profile/services/profileService'
 
 let syncInterval: NodeJS.Timeout | null = null
+let isSyncing = false
+
+// Полная синхронизация с защитой от дублирования
+async function fullSync(userId: string): Promise<void> {
+  if (isSyncing) {
+    console.log('⏳ Синхронизация уже выполняется, пропускаем...')
+    return
+  }
+  
+  isSyncing = true
+  
+  try {
+    console.log('🔄 Начало синхронизации...')
+    
+    // 1. Сначала отправляем локальные изменения на сервер
+    // И ЖДЕМ пока все локальные ID заменятся на UUID
+    await syncService.processSyncQueue()
+    
+    // 2. Небольшая задержка чтобы убедиться что все записи обновлены
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // 3. Только после этого загружаем данные с сервера
+    // Это предотвратит дублирование, так как локальные записи уже имеют UUID
+    await customersService.syncFromServer(userId)
+    await projectsService.syncAllFromServer(userId)
+    await profileService.syncAllFromServer(userId)
+    
+    console.log('✓ Синхронизация завершена')
+  } catch (error) {
+    console.error('Ошибка синхронизации:', error)
+  } finally {
+    isSyncing = false
+  }
+}
 
 // Настройка автоматической синхронизации
 export function setupNetworkSync(userId: string): void {
   // Первоначальная синхронизация при входе
   if (navigator.onLine) {
-    (async () => {
-      try {
-        console.log('🔄 Начальная синхронизация при входе...')
-        // Сначала синхронизируем очередь
-        await syncService.processSyncQueue()
-        // Затем синхронизируем данные с сервера
-        await customersService.syncFromServer(userId)
-        await projectsService.syncAllFromServer(userId)
-        await profileService.syncAllFromServer(userId)
-        console.log('✓ Начальная синхронизация завершена')
-      } catch (error) {
-        console.error('Ошибка начальной синхронизации:', error)
-      }
-    })()
+    fullSync(userId)
   }
 
   // Слушаем события сети
-  window.addEventListener('online', async () => {
+  const handleOnline = () => {
     console.log('🌐 Сеть восстановлена, запускаем синхронизацию')
-    
-    // Синхронизируем очередь
-    await syncService.processSyncQueue()
-    
-    // Синхронизируем данные с сервера
-    try {
-      await customersService.syncFromServer(userId)
-      await projectsService.syncAllFromServer(userId)
-      await profileService.syncAllFromServer(userId)
-      console.log('✓ Синхронизация с сервера завершена')
-    } catch (error) {
-      console.error('Ошибка синхронизации с сервера:', error)
-    }
-  })
-
-  window.addEventListener('offline', () => {
+    fullSync(userId)
+  }
+  
+  const handleOffline = () => {
     console.log('📴 Сеть потеряна, переходим в офлайн режим')
-  })
+  }
+
+  window.addEventListener('online', handleOnline)
+  window.addEventListener('offline', handleOffline)
 
   // Периодическая синхронизация (каждые 30 секунд)
   if (syncInterval) {
@@ -53,10 +65,10 @@ export function setupNetworkSync(userId: string): void {
   }
 
   syncInterval = setInterval(async () => {
-    if (navigator.onLine && !syncService.isProcessing) {
+    if (navigator.onLine && !syncService.isProcessing && !isSyncing) {
       await syncService.processSyncQueue()
     }
-  }, 30000) // 30 секунд
+  }, 30000)
 }
 
 // Остановка синхронизации
