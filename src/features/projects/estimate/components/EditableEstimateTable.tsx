@@ -196,27 +196,27 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 md:space-y-4">
       {!readOnly && (
         <div className="flex justify-end gap-2">
-          <Button onClick={() => openAddMaterialDialog(null)} size="sm" variant="outline">
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={() => openAddMaterialDialog(null)} size="sm" variant="outline" className="text-xs md:text-sm h-8 md:h-9 px-2 md:px-3">
+            <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
             Добавить группу
           </Button>
         </div>
       )}
 
       <div className="overflow-x-auto border rounded-lg">
-        <Table>
+        <Table className="text-xs md:text-sm">
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[40%] md:w-[35%] text-xs md:text-sm">Наименование</TableHead>
-              <TableHead className="text-center hidden md:table-cell w-[10%] text-xs md:text-sm">Ед.изм</TableHead>
-              <TableHead className="text-center w-[12%] md:w-[10%] text-xs md:text-sm">Расчёт</TableHead>
-              <TableHead className="text-right w-[14%] md:w-[12%] text-xs md:text-sm">Кол-во</TableHead>
-              <TableHead className="text-right w-[16%] md:w-[13%] text-xs md:text-sm">Цена</TableHead>
-              <TableHead className="text-right w-[18%] md:w-[12%] text-xs md:text-sm">Сумма</TableHead>
-              {!readOnly && <TableHead className="w-[50px] md:w-[8%]"></TableHead>}
+              <TableHead className="w-[38%] md:w-[35%] px-1.5 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Наименование</TableHead>
+              <TableHead className="text-center hidden md:table-cell w-[10%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Ед.изм</TableHead>
+              <TableHead className="text-center w-[12%] md:w-[10%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Расчёт</TableHead>
+              <TableHead className="text-right w-[14%] md:w-[12%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Кол-во</TableHead>
+              <TableHead className="text-right w-[14%] md:w-[13%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Цена</TableHead>
+              <TableHead className="text-right w-[16%] md:w-[12%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Сумма</TableHead>
+              {!readOnly && <TableHead className="w-[6%] md:w-[8%] px-0.5 md:px-2"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -231,30 +231,30 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                 <>
                   {/* Заголовок группы */}
                   <TableRow key={item.workId} className="bg-muted/30">
-                    <TableCell colSpan={5} className="font-semibold">{item.workName}</TableCell>
-                    <TableCell className="text-right font-bold font-mono">
+                    <TableCell colSpan={5} className="font-semibold text-xs md:text-sm px-1.5 md:px-4 py-1.5 md:py-3">{item.workName}</TableCell>
+                    <TableCell className="text-right font-bold font-mono text-xs md:text-sm px-1 md:px-4 py-1.5 md:py-3">
                       {item.workTotalWithMaterials.toFixed(2)} ₽
                     </TableCell>
                     {!readOnly && (
-                      <TableCell>
-                        <div className="flex gap-1">
+                      <TableCell className="px-0.5 md:px-2 py-1">
+                        <div className="flex gap-0.5">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7"
+                            className="h-6 w-6 md:h-7 md:w-7"
                             onClick={() => openAddMaterialDialog(item.workId)}
                             title="Добавить материал"
                           >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-3 h-3 md:w-4 md:h-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-destructive"
+                            className="h-6 w-6 md:h-7 md:w-7 text-destructive"
                             onClick={() => handleDeleteGroup(item.workId)}
                             title="Удалить группу"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -264,13 +264,13 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                   {/* Материалы */}
                   {item.materials.map((material) => (
                     <TableRow key={material.materialId} className="text-muted-foreground">
-                      <TableCell className="pl-3 md:pl-8 text-xs md:text-sm py-2 md:py-3">— {material.materialName}</TableCell>
-                      <TableCell className="text-center hidden md:table-cell text-xs md:text-sm">{material.materialUnit}</TableCell>
-                      <TableCell className="text-center text-xs">
+                      <TableCell className="pl-2 md:pl-8 pr-1 md:pr-4 py-1 md:py-3 text-[10px] md:text-sm">— {material.materialName}</TableCell>
+                      <TableCell className="text-center hidden md:table-cell text-xs md:text-sm px-1 md:px-4 py-1 md:py-3">{material.materialUnit}</TableCell>
+                      <TableCell className="text-center text-[10px] md:text-xs px-0.5 md:px-4 py-1 md:py-3">
                         {getCalculationTypeLabel(material.calculationType)}
                       </TableCell>
                       <TableCell 
-                        className={`text-right ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
+                        className={`text-right text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3 ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
                         onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'quantity', material.materialQuantity)}
                       >
                         {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'quantity' ? (
@@ -282,7 +282,7 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                             onChange={(e) => setEditValue(e.target.value)}
                             onBlur={handleSaveEdit}
                             onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                            className="w-20 h-8 text-right"
+                            className="w-14 md:w-20 h-6 md:h-8 text-right text-xs"
                             autoFocus
                           />
                         ) : (
@@ -290,7 +290,7 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                         )}
                       </TableCell>
                       <TableCell 
-                        className={`text-right ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
+                        className={`text-right text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3 ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
                         onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'price', material.materialPrice)}
                       >
                         {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'price' ? (
@@ -302,24 +302,24 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                             onChange={(e) => setEditValue(e.target.value)}
                             onBlur={handleSaveEdit}
                             onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                            className="w-24 h-8 text-right"
+                            className="w-16 md:w-24 h-6 md:h-8 text-right text-xs"
                             autoFocus
                           />
                         ) : (
                           material.materialPrice.toFixed(2)
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-mono">{material.materialTotal.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3">{material.materialTotal.toFixed(2)}</TableCell>
                       {!readOnly && (
-                        <TableCell>
+                        <TableCell className="px-0.5 md:px-2 py-1">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-destructive"
+                            className="h-6 w-6 md:h-7 md:w-7 text-destructive"
                             onClick={() => handleDeleteMaterial(item.workId, material.materialId)}
                             title="Удалить материал"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                           </Button>
                         </TableCell>
                       )}
@@ -331,14 +331,14 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
 
             {/* Общий итог */}
             {localEstimate.items.length > 0 && (
-              <TableRow className="bg-primary/10 font-bold text-lg">
-                <TableCell colSpan={5} className="text-right">
+              <TableRow className="bg-primary/10 font-bold text-sm md:text-lg">
+                <TableCell colSpan={5} className="text-right px-1.5 md:px-4 py-2 md:py-3">
                   ИТОГО:
                 </TableCell>
-                <TableCell className="text-right font-mono">
+                <TableCell className="text-right font-mono px-1 md:px-4 py-2 md:py-3">
                   {localEstimate.total.toFixed(2)} ₽
                 </TableCell>
-                {!readOnly && <TableCell />}
+                {!readOnly && <TableCell className="px-0.5 md:px-2" />}
               </TableRow>
             )}
           </TableBody>
