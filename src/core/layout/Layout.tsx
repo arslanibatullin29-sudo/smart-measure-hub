@@ -1,43 +1,40 @@
-import { ReactNode, useEffect, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { Sidebar } from './Sidebar'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { SyncIndicator } from '@/components/SyncIndicator'
-import { useAuth } from '@/features/auth/hooks/useAuth'
-import { setupNetworkSync } from '@/services/sync/networkSync'
-import { Menu, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ReactNode, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Sidebar } from "./Sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { SyncIndicator } from "@/components/SyncIndicator";
+import { useAuth } from "@/features/auth/hooks/useAuth";
+import { setupNetworkSync } from "@/services/sync/networkSync";
+import { Menu, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface LayoutProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
-      setupNetworkSync(user.id)
-      
+      setupNetworkSync(user.id);
+
       const updateCache = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['customers', user.id] })
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
-      }, 2000)
-      
-      return () => clearTimeout(updateCache)
+        queryClient.invalidateQueries({ queryKey: ["customers", user.id] });
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }, 2000);
+
+      return () => clearTimeout(updateCache);
     }
-  }, [user?.id, queryClient])
+  }, [user?.id, queryClient]);
 
   return (
     <div className="min-h-screen bg-background flex relative">
       {/* Overlay для мобильных */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
@@ -55,7 +52,7 @@ export function Layout({ children }: LayoutProps) {
             >
               {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
-            <h1 className="text-base sm:text-lg font-semibold">Room App</h1>
+            <h1 className="text-base sm:text-lg font-semibold">Натяжные потолки</h1>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <SyncIndicator />
@@ -63,12 +60,9 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </header>
         <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-5 w-full max-w-full">
-          <div className="w-full max-w-6xl mx-auto">
-            {children}
-          </div>
+          <div className="w-full max-w-6xl mx-auto">{children}</div>
         </main>
       </div>
     </div>
-  )
+  );
 }
-
