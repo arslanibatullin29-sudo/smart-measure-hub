@@ -1,7 +1,18 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { calculateArea, calculatePerimeter } from '@/core/utils/geometry'
+import { 
+  findNearestWallIndex, 
+  lineLength, 
+  resizeWall, 
+  getRoomDiagonals, 
+  resizeDiagonal,
+  addPointOnWall,
+  distanceToLine
+} from '@/core/utils/canvasGeometry'
 import { Button } from '@/components/ui/button'
-import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
+import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2, Plus, Ruler } from 'lucide-react'
+import { WallLengthInput } from './WallLengthInput'
+import { DiagonalLengthInput } from './DiagonalLengthInput'
 
 interface Point {
   x: number
@@ -40,6 +51,12 @@ function Canvas({
   const [touchDistance, setTouchDistance] = useState<number | null>(null)
   const [touchStartPos, setTouchStartPos] = useState<Point | null>(null) // For tap detection on mobile
   const [touchStartTime, setTouchStartTime] = useState<number>(0) // For tap timing on mobile
+  
+  // Wall/Diagonal editing states
+  const [selectedWall, setSelectedWall] = useState<number | null>(null)
+  const [selectedDiagonal, setSelectedDiagonal] = useState<number | null>(null)
+  const [showDiagonals, setShowDiagonals] = useState(true)
+  const [editMode, setEditMode] = useState<'point' | 'wall'>('point') // 'point' - добавлять точки, 'wall' - редактировать стены
 
   // Адаптивный размер canvas - используем фиксированный большой размер для больших помещений
   useEffect(() => {
@@ -311,9 +328,65 @@ function Canvas({
       ctx.fillText(`${index + 1}`, point.x, point.y)
       ctx.restore()
     })
+
+    // Draw diagonals if enabled and 4+ points
+    if (showDiagonals && points.length >= 4) {
+      const diagonals = getRoomDiagonals(points)
+      
+      diagonals.forEach((diagonal, index) => {
+        const p1 = points[diagonal.start]
+        const p2 = points[diagonal.end]
+        
+        // Draw diagonal line
+        ctx.beginPath()
+        ctx.setLineDash([8, 4])
+        ctx.strokeStyle = selectedDiagonal === index ? 'hsl(45, 90%, 50%)' : 'hsla(45, 80%, 50%, 0.6)'
+        ctx.lineWidth = selectedDiagonal === index ? 3 / zoom : 2 / zoom
+        ctx.moveTo(p1.x, p1.y)
+        ctx.lineTo(p2.x, p2.y)
+        ctx.stroke()
+        ctx.setLineDash([])
+        
+        // Draw diagonal length label
+        const midX = (p1.x + p2.x) / 2
+        const midY = (p1.y + p2.y) / 2
+        const lengthInPixels = lineLength(p1, p2)
+        const lengthInMeters = lengthInPixels / scale / 100
+        const lengthText = `${lengthInMeters.toFixed(2)} м`
+        
+        ctx.font = 'bold 12px Inter, sans-serif'
+        const textMetrics = ctx.measureText(lengthText)
+        const textWidth = textMetrics.width
+        const textHeight = 16
+        const padding = 6
+        
+        ctx.save()
+        ctx.fillStyle = 'hsl(45, 80%, 95%)'
+        ctx.strokeStyle = 'hsl(45, 80%, 50%)'
+        ctx.lineWidth = 1.5 / zoom
+        ctx.fillRect(
+          midX - textWidth / 2 - padding, 
+          midY - textHeight / 2 - padding / 2, 
+          textWidth + padding * 2, 
+          textHeight + padding
+        )
+        ctx.strokeRect(
+          midX - textWidth / 2 - padding, 
+          midY - textHeight / 2 - padding / 2, 
+          textWidth + padding * 2, 
+          textHeight + padding
+        )
+        
+        ctx.fillStyle = 'hsl(45, 80%, 30%)'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(lengthText, midX, midY)
+        ctx.restore()
+      })
+    }
     
     ctx.restore() // Восстанавливаем трансформацию
-  }, [points, canvasSize.width, canvasSize.height, scale, hoveredPoint, draggedPoint, zoom, pan, getCSSColor])
+  }, [points, canvasSize.width, canvasSize.height, scale, hoveredPoint, draggedPoint, zoom, pan, getCSSColor, showDiagonals, selectedDiagonal])
 
   useEffect(() => {
     drawCanvas()
@@ -437,9 +510,49 @@ function Canvas({
       } else {
         setDraggedPoint(pointIndex)
       }
-    } else {
-      onPointsChange([...points, snappedPos])
+      setSelectedWall(null)
+      setSelectedDiagonal(null)
+      return
     }
+    
+    // В режиме редактирования стен - проверяем клик на стену или диагональ
+    if (editMode === 'wall' && points.length >= 2) {
+      // Проверяем клик на диагональ (приоритет)
+      if (showDiagonals && points.length >= 4) {
+        const diagonals = getRoomDiagonals(points)
+        const threshold = 20 / zoom
+        
+        for (let i = 0; i < diagonals.length; i++) {
+          const d = diagonals[i]
+          const dist = distanceToLine(snappedPos, points[d.start], points[d.end])
+          if (dist < threshold) {
+            setSelectedDiagonal(i)
+            setSelectedWall(null)
+            return
+          }
+        }
+      }
+      
+      // Проверяем клик на стену
+      const wallIndex = findNearestWallIndex(snappedPos, points, 20 / zoom)
+      if (wallIndex !== null) {
+        // Shift+клик - добавить точку на стену
+        if (e.shiftKey) {
+          const newPoints = addPointOnWall(points, wallIndex, snappedPos)
+          onPointsChange(newPoints)
+          if (navigator.vibrate) navigator.vibrate(10)
+        } else {
+          setSelectedWall(wallIndex)
+          setSelectedDiagonal(null)
+        }
+        return
+      }
+    }
+    
+    // По умолчанию - добавляем точку
+    setSelectedWall(null)
+    setSelectedDiagonal(null)
+    onPointsChange([...points, snappedPos])
   }
   
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
@@ -722,7 +835,74 @@ function Canvas({
 
   const handleClear = () => {
     onPointsChange([])
+    setSelectedWall(null)
+    setSelectedDiagonal(null)
   }
+
+  // Обработка изменения длины стены
+  const handleWallLengthChange = (newLengthMeters: number) => {
+    if (selectedWall === null) return
+    const newPoints = resizeWall(points, selectedWall, newLengthMeters, scale)
+    onPointsChange(newPoints)
+    setSelectedWall(null)
+    if (navigator.vibrate) navigator.vibrate(10)
+  }
+
+  // Обработка изменения длины диагонали
+  const handleDiagonalLengthChange = (newLengthMeters: number, diagonalIndex: number) => {
+    const newPoints = resizeDiagonal(points, diagonalIndex, newLengthMeters, scale)
+    onPointsChange(newPoints)
+    setSelectedDiagonal(null)
+    if (navigator.vibrate) navigator.vibrate(10)
+  }
+
+  // Получить позицию для input на экране
+  const getScreenPosition = (canvasPos: Point): { x: number; y: number } => {
+    const canvas = canvasRef.current
+    const container = containerRef.current
+    if (!canvas || !container) return { x: 0, y: 0 }
+    
+    const canvasRect = canvas.getBoundingClientRect()
+    
+    // Масштаб между логическим размером canvas и отображаемым
+    const scaleX = canvasRect.width / canvas.width
+    const scaleY = canvasRect.height / canvas.height
+    
+    // Применяем zoom и pan для получения позиции на экране
+    const screenX = (canvasPos.x * zoom + pan.x) * scaleX
+    const screenY = (canvasPos.y * zoom + pan.y) * scaleY
+    
+    return { x: screenX, y: screenY }
+  }
+
+  // Получить данные выбранной стены
+  const getSelectedWallData = () => {
+    if (selectedWall === null || points.length < 2) return null
+    const nextIndex = (selectedWall + 1) % points.length
+    const p1 = points[selectedWall]
+    const p2 = points[nextIndex]
+    const lengthPixels = lineLength(p1, p2)
+    const lengthMeters = lengthPixels / scale / 100
+    const midPoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+    return { lengthMeters, position: getScreenPosition(midPoint) }
+  }
+
+  // Получить данные выбранной диагонали
+  const getSelectedDiagonalData = () => {
+    if (selectedDiagonal === null || points.length < 4) return null
+    const diagonals = getRoomDiagonals(points)
+    if (selectedDiagonal >= diagonals.length) return null
+    const d = diagonals[selectedDiagonal]
+    const p1 = points[d.start]
+    const p2 = points[d.end]
+    const lengthPixels = lineLength(p1, p2)
+    const lengthMeters = lengthPixels / scale / 100
+    const midPoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+    return { lengthMeters, position: getScreenPosition(midPoint) }
+  }
+
+  const wallData = getSelectedWallData()
+  const diagonalData = getSelectedDiagonalData()
 
   // Вычисляем площадь и периметр с учетом масштаба для отображения
   const area = points.length >= 3 
@@ -791,6 +971,45 @@ function Canvas({
               <Maximize2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </Button>
           </div>
+          
+          {/* Mode controls */}
+          <div className="flex items-center gap-0.5 sm:gap-1 border rounded-md p-0.5 sm:p-1">
+            <Button
+              variant={editMode === 'point' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => { setEditMode('point'); setSelectedWall(null); setSelectedDiagonal(null); }}
+              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
+              title="Добавить точки"
+            >
+              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline ml-1">Точки</span>
+            </Button>
+            <Button
+              variant={editMode === 'wall' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setEditMode('wall')}
+              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
+              title="Редактировать стены"
+              disabled={points.length < 2}
+            >
+              <Ruler className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline ml-1">Стены</span>
+            </Button>
+          </div>
+          
+          {/* Diagonal toggle */}
+          {points.length >= 4 && (
+            <Button
+              variant={showDiagonals ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setShowDiagonals(!showDiagonals)}
+              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
+              title="Показать диагонали"
+            >
+              <span className="text-xs sm:text-sm">⟍</span>
+              <span className="hidden sm:inline ml-1">Диагонали</span>
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
@@ -833,6 +1052,27 @@ function Canvas({
           onTouchEnd={handleTouchEnd}
         />
         
+        {/* Wall length input */}
+        {wallData && (
+          <WallLengthInput
+            currentLength={wallData.lengthMeters}
+            position={wallData.position}
+            onSubmit={handleWallLengthChange}
+            onCancel={() => setSelectedWall(null)}
+          />
+        )}
+        
+        {/* Diagonal length input */}
+        {diagonalData && selectedDiagonal !== null && (
+          <DiagonalLengthInput
+            currentLength={diagonalData.lengthMeters}
+            diagonalIndex={selectedDiagonal}
+            position={diagonalData.position}
+            onSubmit={handleDiagonalLengthChange}
+            onCancel={() => setSelectedDiagonal(null)}
+          />
+        )}
+        
         {/* Hint overlay */}
         {points.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -853,13 +1093,13 @@ function Canvas({
             <span className="text-success">• Замкнут</span>
           )}
           <span className="text-xs opacity-70 hidden sm:inline">
-            • Двойной клик или ПКМ по точке для удаления
+            • Режим "Стены": клик на стену для изменения длины
           </span>
           <span className="text-xs opacity-70 hidden sm:inline">
-            • Колесо мыши или два пальца для зума • Ctrl+перетаскивание для перемещения
+            • Shift+клик: добавить точку на стену
           </span>
           <span className="text-xs opacity-70 sm:hidden">
-            • Два пальца для зума • Один палец для перемещения
+            • Режим "Стены" для редактирования длин
           </span>
         </div>
       )}
