@@ -38,6 +38,7 @@ function Canvas({
   const [isPanning, setIsPanning] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null)
   const [touchDistance, setTouchDistance] = useState<number | null>(null)
+  const [touchStartPos, setTouchStartPos] = useState<Point | null>(null) // For tap detection on mobile
 
   // Адаптивный размер canvas - используем фиксированный большой размер для больших помещений
   useEffect(() => {
@@ -448,17 +449,19 @@ function Canvas({
       setTouchDistance(distance)
       const center = getTouchCenter(e.touches[0], e.touches[1])
       setLastPanPoint(center)
+      setTouchStartPos(null) // Cancel tap detection
     } else if (e.touches.length === 1) {
-      // Один палец - проверяем, не попали ли на точку
       const pos = getCanvasCoords(e)
       const pointIndex = findPointAtPosition(pos)
+      const touch = e.touches[0]
+      
+      // Save touch start position for tap detection
+      setTouchStartPos({ x: touch.clientX, y: touch.clientY })
       
       if (pointIndex !== null) {
         setDraggedPoint(pointIndex)
       } else {
-        // Начинаем pan одним пальцем
-        setIsPanning(true)
-        const touch = e.touches[0]
+        // Prepare for potential pan (will start if finger moves)
         setLastPanPoint({ x: touch.clientX, y: touch.clientY })
       }
     }
@@ -540,27 +543,40 @@ function Canvas({
       setZoom(newZoom)
       setTouchDistance(newDistance)
       setLastPanPoint(center)
-    } else if (e.touches.length === 1 && isPanning && lastPanPoint) {
-      // Pan одним пальцем в логических координатах
-      const canvas = canvasRef.current
-      if (canvas) {
-        const rect = canvas.getBoundingClientRect()
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
-        
-        const touch = e.touches[0]
-        const currentViewX = touch.clientX - rect.left
-        const currentViewY = touch.clientY - rect.top
-        const lastViewX = lastPanPoint.x - rect.left
-        const lastViewY = lastPanPoint.y - rect.top
-        
-        const deltaX = (currentViewX - lastViewX) * scaleX
-        const deltaY = (currentViewY - lastViewY) * scaleY
-        
-        setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }))
-      }
+    } else if (e.touches.length === 1 && lastPanPoint) {
       const touch = e.touches[0]
-      setLastPanPoint({ x: touch.clientX, y: touch.clientY })
+      
+      // Check if finger moved enough to start panning (threshold 10px)
+      if (touchStartPos) {
+        const dx = touch.clientX - touchStartPos.x
+        const dy = touch.clientY - touchStartPos.y
+        const moved = Math.sqrt(dx * dx + dy * dy)
+        if (moved > 10) {
+          setIsPanning(true)
+          setTouchStartPos(null) // Cancel tap - this is a pan/drag
+        }
+      }
+      
+      if (isPanning) {
+        // Pan одним пальцем в логических координатах
+        const canvas = canvasRef.current
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect()
+          const scaleX = canvas.width / rect.width
+          const scaleY = canvas.height / rect.height
+          
+          const currentViewX = touch.clientX - rect.left
+          const currentViewY = touch.clientY - rect.top
+          const lastViewX = lastPanPoint.x - rect.left
+          const lastViewY = lastPanPoint.y - rect.top
+          
+          const deltaX = (currentViewX - lastViewX) * scaleX
+          const deltaY = (currentViewY - lastViewY) * scaleY
+          
+          setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }))
+        }
+        setLastPanPoint({ x: touch.clientX, y: touch.clientY })
+      }
     } else if (e.touches.length === 1 && draggedPoint !== null) {
       // Перемещение точки с привязкой к сетке
       const pos = getCanvasCoords(e)
@@ -589,9 +605,41 @@ function Canvas({
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
     if (e.touches.length === 0) {
+      // If touchStartPos is set and we weren't panning/dragging, this was a tap - add point
+      if (touchStartPos && !isPanning && draggedPoint === null) {
+        // Get canvas coordinates from the last touch position
+        const canvas = canvasRef.current
+        if (canvas) {
+          const rect = canvas.getBoundingClientRect()
+          const scaleX = canvas.width / rect.width
+          const scaleY = canvas.height / rect.height
+          
+          const viewX = touchStartPos.x - rect.left
+          const viewY = touchStartPos.y - rect.top
+          const logicalX = viewX * scaleX
+          const logicalY = viewY * scaleY
+          
+          const x = (logicalX - pan.x) / zoom
+          const y = (logicalY - pan.y) / zoom
+          
+          // Snap to grid
+          const snappedPos = {
+            x: Math.round(x),
+            y: Math.round(y)
+          }
+          
+          // Only add if not clicking on existing point
+          const existingPoint = findPointAtPosition(snappedPos)
+          if (existingPoint === null) {
+            onPointsChange([...points, snappedPos])
+          }
+        }
+      }
+      
       setIsPanning(false)
       setTouchDistance(null)
       setLastPanPoint(null)
+      setTouchStartPos(null)
       if (draggedPoint !== null) {
         setDraggedPoint(null)
       }
@@ -601,6 +649,7 @@ function Canvas({
       const touch = e.touches[0]
       setLastPanPoint({ x: touch.clientX, y: touch.clientY })
       setTouchDistance(null)
+      setTouchStartPos(null)
     }
   }
   
