@@ -109,20 +109,25 @@ function ProjectEstimate() {
 
   const handleGeneratePDF = async () => {
     if (!project || !customer || !estimate) {
-      toast.error("Недостаточно данных");
-      return;
+      toast.error("Недостаточно данных")
+      return
     }
 
-    setIsGenerating(true);
+    setIsGenerating(true)
     try {
-      await pdfService.downloadPDF(customer, project, estimate);
-      toast.success("PDF сгенерирован");
+      await pdfService.downloadPDF(customer, project, estimate)
+      toast.success("PDF сгенерирован")
     } catch (error: any) {
-      toast.error("Ошибка: " + error.message);
+      // Проверяем офлайн ошибку
+      if (!navigator.onLine) {
+        toast.error("Для генерации PDF требуется загрузить шрифты. Подключитесь к интернету.")
+      } else {
+        toast.error("Ошибка: " + error.message)
+      }
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false)
     }
-  };
+  }
 
   if (isLoading) {
     return (
