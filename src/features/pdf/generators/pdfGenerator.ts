@@ -71,15 +71,24 @@ export class PDFGenerator {
     doc.setFontSize(11)
     doc.setFont(fontName, 'normal')
     
-    // Клиент
+    // Параметры помещения
+    const areaValue = Number(data.project.area) || 0
+    const perimeterValue = Number(data.project.perimeter) || 0
+    const cornersValue = Array.isArray(data.project.points) ? data.project.points.length : 0
+    
+    // Клиент и параметры помещения в двух колонках
     const clientInfo = [
-      ['Заказчик:', data.customer.fullName],
+      ['Заказчик:', data.customer.fullName, 'Площадь:', areaValue.toFixed(2) + ' кв.м'],
     ]
     if (data.customer.address) {
-      clientInfo.push(['Адрес объекта:', data.customer.address])
+      clientInfo.push(['Адрес объекта:', data.customer.address, 'Периметр:', perimeterValue.toFixed(2) + ' м'])
+    } else {
+      clientInfo.push(['', '', 'Периметр:', perimeterValue.toFixed(2) + ' м'])
     }
     if (data.customer.phone) {
-      clientInfo.push(['Телефон:', data.customer.phone])
+      clientInfo.push(['Телефон:', data.customer.phone, 'Углов:', String(cornersValue)])
+    } else {
+      clientInfo.push(['', '', 'Углов:', String(cornersValue)])
     }
 
     autoTable(doc, {
@@ -92,40 +101,10 @@ export class PDFGenerator {
         cellPadding: { top: 1.5, bottom: 1.5, left: 0, right: 5 },
       },
       columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 35 },
-        1: { cellWidth: contentWidth - 35 },
-      },
-      margin: { left: marginLeft, right: marginRight },
-    })
-
-    yPos = (doc as any).lastAutoTable.finalY + 8
-
-    // Параметры помещения
-    const areaValue = Number(data.project.area) || 0
-    const perimeterValue = Number(data.project.perimeter) || 0
-    const cornersValue = Array.isArray(data.project.points) ? data.project.points.length : 0
-    
-    autoTable(doc, {
-      startY: yPos,
-      head: [[{ content: 'Параметры помещения', colSpan: 3 }]],
-      body: [[
-        'Площадь: ' + areaValue.toFixed(2) + ' кв.м',
-        'Периметр: ' + perimeterValue.toFixed(2) + ' м',
-        'Углов: ' + String(cornersValue),
-      ]],
-      theme: 'grid',
-      styles: {
-        font: fontName,
-        fontSize: 10,
-        cellPadding: 4,
-        halign: 'center',
-      },
-      headStyles: {
-        fillColor: [70, 70, 70],
-        textColor: [255, 255, 255],
-        font: fontName,
-        fontSize: 11,
-        halign: 'center',
+        0: { fontStyle: 'bold', cellWidth: 30 },
+        1: { cellWidth: (contentWidth - 60) / 2 },
+        2: { fontStyle: 'bold', cellWidth: 30 },
+        3: { cellWidth: (contentWidth - 60) / 2 },
       },
       margin: { left: marginLeft, right: marginRight },
     })
@@ -144,17 +123,23 @@ export class PDFGenerator {
 
       // Материалы (комплектующие)
       for (const material of item.materials) {
-        const qty = Number(material.materialQuantity) || 0
-        const price = Number(material.materialPrice) || 0
-        const total = Number(material.materialTotal) || 0
+        // Безопасное преобразование значений с проверкой на null/undefined
+        const qty = material.materialQuantity != null ? Number(material.materialQuantity) : 0
+        const price = material.materialPrice != null ? Number(material.materialPrice) : 0
+        const total = material.materialTotal != null ? Number(material.materialTotal) : 0
+        
+        // Форматируем значения - всегда показываем 2 знака после запятой
+        const qtyStr = isNaN(qty) ? '0.00' : qty.toFixed(2)
+        const priceStr = isNaN(price) ? '0.00' : price.toFixed(2)
+        const totalStr = isNaN(total) ? '0.00' : total.toFixed(2)
         
         tableBody.push([
           { content: String(rowNum++), styles: { halign: 'center' } },
           { content: material.materialName || '', styles: { halign: 'left' } },
           { content: material.materialUnit || '', styles: { halign: 'center' } },
-          { content: qty.toFixed(2), styles: { halign: 'right' } },
-          { content: price.toFixed(2), styles: { halign: 'right' } },
-          { content: total.toFixed(2), styles: { halign: 'right' } },
+          { content: qtyStr, styles: { halign: 'right' } },
+          { content: priceStr, styles: { halign: 'right' } },
+          { content: totalStr, styles: { halign: 'right' } },
         ])
       }
 
