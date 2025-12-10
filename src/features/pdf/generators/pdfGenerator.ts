@@ -53,15 +53,18 @@ export class PDFGenerator {
 
     // Заголовок
     doc.setFontSize(18)
-    doc.setFont(fontName, 'normal')
+    doc.setFont(fontName, 'bold')
     doc.text('СМЕТА', pageWidth / 2, yPos, { align: 'center' })
     yPos += 10
 
     // Дата
     const currentDate = new Date()
-    const formattedDate = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`
+    const day = String(currentDate.getDate()).padStart(2, '0')
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+    const year = String(currentDate.getFullYear())
     doc.setFontSize(11)
-    doc.text(`от ${formattedDate}`, pageWidth / 2, yPos, { align: 'center' })
+    doc.setFont(fontName, 'normal')
+    doc.text('от ' + day + '.' + month + '.' + year, pageWidth / 2, yPos, { align: 'center' })
     yPos += 12
 
     // Блок информации об объекте
@@ -98,13 +101,17 @@ export class PDFGenerator {
     yPos = (doc as any).lastAutoTable.finalY + 8
 
     // Параметры помещения
+    const areaValue = Number(data.project.area) || 0
+    const perimeterValue = Number(data.project.perimeter) || 0
+    const cornersValue = Array.isArray(data.project.points) ? data.project.points.length : 0
+    
     autoTable(doc, {
       startY: yPos,
       head: [[{ content: 'Параметры помещения', colSpan: 3 }]],
       body: [[
-        `Площадь: ${data.project.area.toFixed(2)} м²`,
-        `Периметр: ${data.project.perimeter.toFixed(2)} м`,
-        `Углов: ${data.project.points.length}`,
+        'Площадь: ' + areaValue.toFixed(2) + ' кв.м',
+        'Периметр: ' + perimeterValue.toFixed(2) + ' м',
+        'Углов: ' + String(cornersValue),
       ]],
       theme: 'grid',
       styles: {
@@ -132,26 +139,31 @@ export class PDFGenerator {
     for (const item of data.estimate.items) {
       // Заголовок группы (спецификация)
       tableBody.push([
-        { content: item.workName, colSpan: 6, styles: { fontStyle: 'bold', fillColor: [240, 240, 240], halign: 'left' } },
+        { content: item.workName || '', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [240, 240, 240], halign: 'left' } },
       ])
 
       // Материалы (комплектующие)
       for (const material of item.materials) {
+        const qty = Number(material.materialQuantity) || 0
+        const price = Number(material.materialPrice) || 0
+        const total = Number(material.materialTotal) || 0
+        
         tableBody.push([
           { content: String(rowNum++), styles: { halign: 'center' } },
-          material.materialName,
-          { content: material.materialUnit, styles: { halign: 'center' } },
-          { content: material.materialQuantity.toFixed(2), styles: { halign: 'right' } },
-          { content: material.materialPrice.toFixed(2), styles: { halign: 'right' } },
-          { content: material.materialTotal.toFixed(2), styles: { halign: 'right' } },
+          { content: material.materialName || '', styles: { halign: 'left' } },
+          { content: material.materialUnit || '', styles: { halign: 'center' } },
+          { content: qty.toFixed(2), styles: { halign: 'right' } },
+          { content: price.toFixed(2), styles: { halign: 'right' } },
+          { content: total.toFixed(2), styles: { halign: 'right' } },
         ])
       }
 
       // Подитог по группе
+      const groupTotal = Number(item.workTotalWithMaterials) || 0
       tableBody.push([
         { content: '', styles: { fillColor: [248, 248, 248] } },
-        { content: `Итого по "${item.workName}":`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: [248, 248, 248], halign: 'right' } },
-        { content: item.workTotalWithMaterials.toFixed(2), styles: { fontStyle: 'bold', fillColor: [248, 248, 248], halign: 'right' } },
+        { content: 'Итого по "' + (item.workName || '') + '":', colSpan: 4, styles: { fontStyle: 'bold', fillColor: [248, 248, 248], halign: 'right' } },
+        { content: groupTotal.toFixed(2), styles: { fontStyle: 'bold', fillColor: [248, 248, 248], halign: 'right' } },
       ])
     }
 
@@ -190,11 +202,12 @@ export class PDFGenerator {
     }
 
     // Итоговая сумма
+    const grandTotal = Number(data.estimate.total) || 0
     autoTable(doc, {
       startY: yPos,
       body: [[
         { content: 'ИТОГО:', styles: { fontStyle: 'bold', fontSize: 12, halign: 'right' } },
-        { content: `${data.estimate.total.toFixed(2)} ₽`, styles: { fontStyle: 'bold', fontSize: 12, halign: 'right' } },
+        { content: grandTotal.toFixed(2) + ' руб.', styles: { fontStyle: 'bold', fontSize: 12, halign: 'right' } },
       ]],
       theme: 'plain',
       styles: {
