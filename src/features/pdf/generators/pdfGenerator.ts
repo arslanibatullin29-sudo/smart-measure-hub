@@ -11,17 +11,38 @@ interface PDFData {
   organizationName?: string
 }
 
-// Загружаем шрифт как base64
-async function loadFont(path: string): Promise<string> {
-  const response = await fetch(path)
-  if (!response.ok) throw new Error(`Font not found: ${path}`)
-  const buffer = await response.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
+// Кэш для шрифтов (для офлайн работы)
+let cachedRegularFont: string | null = null
+let cachedBoldFont: string | null = null
+
+// Загружаем шрифт как base64 с кэшированием
+async function loadFont(path: string, useCache: 'regular' | 'bold'): Promise<string> {
+  // Проверяем кэш
+  if (useCache === 'regular' && cachedRegularFont) return cachedRegularFont
+  if (useCache === 'bold' && cachedBoldFont) return cachedBoldFont
+  
+  try {
+    const response = await fetch(path, {
+      cache: 'force-cache' // Используем кэш браузера для офлайн
+    })
+    if (!response.ok) throw new Error(`Font not found: ${path}`)
+    const buffer = await response.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    const base64 = btoa(binary)
+    
+    // Сохраняем в кэш
+    if (useCache === 'regular') cachedRegularFont = base64
+    if (useCache === 'bold') cachedBoldFont = base64
+    
+    return base64
+  } catch (error) {
+    console.error('Ошибка загрузки шрифта:', error)
+    throw new Error('Не удалось загрузить шрифт для PDF. Проверьте подключение к интернету.')
   }
-  return btoa(binary)
 }
 
 export class PDFGenerator {
@@ -32,10 +53,10 @@ export class PDFGenerator {
       format: 'a4'
     })
     
-    // Загружаем и регистрируем шрифты с кириллицей (обычный и жирный)
+    // Загружаем и регистрируем шрифты с кириллицей (с кэшированием для офлайн)
     const [regularFont, boldFont] = await Promise.all([
-      loadFont('/fonts/Roboto-Regular.ttf'),
-      loadFont('/fonts/Roboto-Bold.ttf')
+      loadFont('/fonts/Roboto-Regular.ttf', 'regular'),
+      loadFont('/fonts/Roboto-Bold.ttf', 'bold')
     ])
     
     doc.addFileToVFS('Roboto-Regular.ttf', regularFont)

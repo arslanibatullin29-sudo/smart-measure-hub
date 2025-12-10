@@ -5,33 +5,68 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    port: 8080
+  },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['fonts/*.ttf', 'vite.svg'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        // Стратегия кэширования для обновлений
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,ttf,woff,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.js$/,
+            // Кэширование шрифтов для офлайн PDF
+            urlPattern: /\/fonts\/.*\.ttf$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 год
+              },
+            },
+          },
+          {
+            // API запросы - сначала сеть, потом кэш
+            urlPattern: /^https:\/\/.*supabase.*$/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'js-cache',
+              cacheName: 'api-cache',
               expiration: {
-                maxEntries: 50,
+                maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24, // 24 часа
               },
+              networkTimeoutSeconds: 10,
             },
           },
         ],
       },
       manifest: {
-        name: 'Room App',
-        short_name: 'RoomApp',
+        name: 'Натяжные потолки - Замеры и сметы',
+        short_name: 'Замеры',
         description: 'Приложение для замеров помещений и расчёта смет',
-        theme_color: '#ffffff',
-        icons: []
+        theme_color: '#1a1a2e',
+        background_color: '#1a1a2e',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
       }
     })
   ],
@@ -41,7 +76,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['xlsx'],
+    include: ['xlsx', 'jspdf', 'jspdf-autotable'],
     esbuildOptions: {
       define: {
         global: 'globalThis',
@@ -49,7 +84,6 @@ export default defineConfig({
     },
   },
   build: {
-    // Генерируем имена файлов с хэшами для правильного кэширования
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].[hash].js`,
@@ -57,11 +91,10 @@ export default defineConfig({
         assetFileNames: `assets/[name].[hash].[ext]`,
       },
     },
-    // Отключаем минификацию имен для отладки (можно включить в продакшене)
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // Оставляем console для отладки
+        drop_console: false,
       },
     },
   },
