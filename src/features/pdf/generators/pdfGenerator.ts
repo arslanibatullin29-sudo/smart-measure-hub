@@ -11,10 +11,10 @@ interface PDFData {
   organizationName?: string
 }
 
-// Загружаем шрифт Roboto с полной поддержкой кириллицы
-async function loadRobotoFont(): Promise<string> {
-  const response = await fetch('/fonts/Roboto-Regular.ttf')
-  if (!response.ok) throw new Error('Font not found')
+// Загружаем шрифт как base64
+async function loadFont(path: string): Promise<string> {
+  const response = await fetch(path)
+  if (!response.ok) throw new Error(`Font not found: ${path}`)
   const buffer = await response.arrayBuffer()
   const bytes = new Uint8Array(buffer)
   let binary = ''
@@ -32,10 +32,16 @@ export class PDFGenerator {
       format: 'a4'
     })
     
-    // Загружаем и регистрируем шрифт с кириллицей
-    const fontBase64 = await loadRobotoFont()
-    doc.addFileToVFS('Roboto-Regular.ttf', fontBase64)
+    // Загружаем и регистрируем шрифты с кириллицей (обычный и жирный)
+    const [regularFont, boldFont] = await Promise.all([
+      loadFont('/fonts/Roboto-Regular.ttf'),
+      loadFont('/fonts/Roboto-Bold.ttf')
+    ])
+    
+    doc.addFileToVFS('Roboto-Regular.ttf', regularFont)
+    doc.addFileToVFS('Roboto-Bold.ttf', boldFont)
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
     doc.setFont('Roboto')
     
     const fontName = 'Roboto'
