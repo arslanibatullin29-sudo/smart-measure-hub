@@ -105,12 +105,11 @@ export class PDFGenerator {
     // Параметры помещения
     autoTable(doc, {
       startY: yPos,
-      head: [['Параметры помещения', '', '', '']],
+      head: [['Параметры помещения', '', '']],
       body: [[
         `Площадь: ${data.project.area.toFixed(2)} м²`,
         `Периметр: ${data.project.perimeter.toFixed(2)} м`,
         `Углов: ${data.project.points.length}`,
-        `Элементов: ${data.project.elementCount}`,
       ]],
       theme: 'grid',
       styles: {

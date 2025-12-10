@@ -45,7 +45,7 @@ function ProjectEstimate() {
       ])
       
       if (!proj) {
-        toast.error('Проект не найден')
+        toast.error('Объект не найден')
         navigate(`/customers/${customerId}/projects`)
         return
       }
@@ -230,24 +230,26 @@ function ProjectEstimate() {
         </div>
       </div>
 
-      {/* Параметры объекта - компактно */}
+      {/* Параметры объекта - компактно с подсказками */}
       {project && (
         <div className="flex flex-wrap gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md cursor-help" 
+            title="Площадь используется для расчёта материалов типа 'по площади'"
+          >
             <Square className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs sm:text-sm font-mono">{project.area.toFixed(1)} м²</span>
+            <span className="text-xs sm:text-sm font-mono">{project.area.toFixed(2)} м²</span>
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md cursor-help" 
+            title="Периметр используется для расчёта материалов типа 'по периметру'"
+          >
             <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs sm:text-sm font-mono">{project.perimeter.toFixed(1)} м</span>
+            <span className="text-xs sm:text-sm font-mono">{project.perimeter.toFixed(2)} м</span>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
             <span className="text-xs text-muted-foreground">Углов:</span>
             <span className="text-xs sm:text-sm font-semibold">{project.points.length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/50 rounded-md">
-            <span className="text-xs text-muted-foreground">Элементов:</span>
-            <span className="text-xs sm:text-sm font-semibold">{project.elementCount}</span>
           </div>
         </div>
       )}
