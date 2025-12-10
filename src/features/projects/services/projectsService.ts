@@ -21,9 +21,24 @@ export const projectsService = {
 
   async create(data: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'lastSyncedAt' | 'syncStatus'>): Promise<Project> {
     const now = new Date().toISOString()
+    
+    // Validate required data
+    if (!data.customerId || !data.userId) {
+      throw new Error('Отсутствуют обязательные поля: customerId или userId')
+    }
+    
+    if (!data.points || data.points.length < 3) {
+      throw new Error('Необходимо минимум 3 точки для создания объекта')
+    }
+    
     // Создаем объект БЕЗ id, чтобы Dexie мог автоматически сгенерировать его
     const projectData = {
       ...data,
+      // Ensure numeric values are properly formatted
+      area: Number(data.area) || 0,
+      perimeter: Number(data.perimeter) || 0,
+      elementCount: Number(data.elementCount) || 0,
+      points: [...data.points], // Create a copy to avoid mutation
       createdAt: now,
       updatedAt: now,
       lastSyncedAt: null,
@@ -31,50 +46,80 @@ export const projectsService = {
     }
 
     // Сохраняем локально (id будет сгенерирован автоматически)
-    const id = await db.projects.add(projectData)
-    const savedProject: Project = { ...projectData, id: id as number }
+    let id: number
+    try {
+      id = await db.projects.add(projectData) as number
+    } catch (dbError: any) {
+      console.error('IndexedDB save error:', dbError)
+      throw new Error('Ошибка сохранения в локальную базу данных')
+    }
+    
+    const savedProject: Project = { ...projectData, id }
 
-    await db.syncQueue.add({
-      table: 'projects',
-      recordId: String(id),
-      operation: 'create',
-      data: savedProject,
-      timestamp: now,
-      retries: 0,
-    })
-
-    // Синхронизация будет выполнена через syncService.processSyncQueue()
-    // Не вызываем syncToServer здесь, чтобы избежать дублирования
+    // Add to sync queue (non-blocking)
+    try {
+      await db.syncQueue.add({
+        table: 'projects',
+        recordId: String(id),
+        operation: 'create',
+        data: savedProject,
+        timestamp: now,
+        retries: 0,
+      })
+    } catch (queueError) {
+      console.error('Sync queue error:', queueError)
+      // Don't throw - project is saved locally
+    }
 
     return savedProject
   },
 
   async update(id: string | number, data: Partial<Project>): Promise<Project> {
     const now = new Date().toISOString()
-    const project = await db.projects.get(id)
+    
+    let project
+    try {
+      project = await db.projects.get(id)
+    } catch (dbError) {
+      console.error('IndexedDB read error:', dbError)
+      throw new Error('Ошибка чтения из локальной базы данных')
+    }
     
     if (!project) throw new Error('Проект не найден')
 
     const updated: Project = {
       ...project,
       ...data,
+      // Ensure numeric values are properly formatted
+      area: data.area !== undefined ? Number(data.area) || project.area : project.area,
+      perimeter: data.perimeter !== undefined ? Number(data.perimeter) || project.perimeter : project.perimeter,
+      elementCount: data.elementCount !== undefined ? Number(data.elementCount) || 0 : project.elementCount,
+      points: data.points ? [...data.points] : project.points,
       updatedAt: now,
       syncStatus: 'pending',
     }
 
-    await db.projects.update(id, updated)
+    try {
+      await db.projects.update(id, updated)
+    } catch (dbError: any) {
+      console.error('IndexedDB update error:', dbError)
+      throw new Error('Ошибка обновления в локальной базе данных')
+    }
 
-    await db.syncQueue.add({
-      table: 'projects',
-      recordId: String(id),
-      operation: 'update',
-      data: updated,
-      timestamp: now,
-      retries: 0,
-    })
-
-    // Синхронизация будет выполнена через syncService.processSyncQueue()
-    // Не вызываем syncToServer здесь, чтобы избежать дублирования
+    // Add to sync queue (non-blocking)
+    try {
+      await db.syncQueue.add({
+        table: 'projects',
+        recordId: String(id),
+        operation: 'update',
+        data: updated,
+        timestamp: now,
+        retries: 0,
+      })
+    } catch (queueError) {
+      console.error('Sync queue error:', queueError)
+      // Don't throw - project is saved locally
+    }
 
     return updated
   },
