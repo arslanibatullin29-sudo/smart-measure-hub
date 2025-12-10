@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import Canvas from '../editor/Canvas'
@@ -8,7 +8,7 @@ import { profileService } from '../estimate/profile/services/profileService'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { InstallationProfile } from '@/services/storage/indexedDB'
 
@@ -60,21 +60,36 @@ function ProjectEditor() {
     }
   }
 
-  const handleSave = async () => {
-    if (!customerId || !user?.id || points.length < 3) {
+  // Prevent double-submit on mobile
+  const isSavingRef = useRef(false)
+  
+  const handleSave = useCallback(async () => {
+    // Prevent double-submit
+    if (isSavingRef.current) {
+      return
+    }
+    
+    if (!customerId || !user?.id) {
+      toast.error('Ошибка: не указан клиент или пользователь')
+      return
+    }
+    
+    if (points.length < 3) {
       toast.error('Добавьте минимум 3 точки для сохранения объекта')
       return
     }
 
+    isSavingRef.current = true
+    
     try {
       const projectData = {
         customerId,
         userId: user.id,
         profileId: selectedProfileId || undefined,
-        points,
-        area,
-        perimeter,
-        elementCount: 0, // Всегда 0, так как элементы больше не используются
+        points: [...points], // Create copy to avoid mutation issues
+        area: Number(area.toFixed(2)),
+        perimeter: Number(perimeter.toFixed(2)),
+        elementCount: 0,
         estimateData: null,
       }
 
@@ -86,13 +101,17 @@ function ProjectEditor() {
         toast.success('Объект создан')
       }
 
-      // Навигация происходит после успешного создания/обновления
-      // React Query автоматически обновит список через invalidateQueries
       navigate(`/customers/${customerId}/projects`)
     } catch (error: any) {
-      toast.error('Ошибка сохранения: ' + error.message)
+      console.error('Save error:', error)
+      toast.error('Ошибка сохранения: ' + (error.message || 'Попробуйте еще раз'))
+    } finally {
+      // Small delay to prevent rapid re-clicks on mobile
+      setTimeout(() => {
+        isSavingRef.current = false
+      }, 500)
     }
-  }
+  }, [customerId, user?.id, points, area, perimeter, selectedProfileId, projectId, updateProject, createProject, navigate])
 
   return (
     <div className="w-full space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-4">
@@ -127,9 +146,14 @@ function ProjectEditor() {
           <Button
             onClick={handleSave}
             disabled={(isCreating || isUpdating) || points.length < 3}
-            className="flex-1 sm:flex-initial h-10 sm:h-9 text-sm"
+            className="flex-1 sm:flex-initial h-12 sm:h-9 text-sm min-w-[120px] touch-manipulation"
           >
-            {(isCreating || isUpdating) ? 'Сохранение...' : 'Сохранить'}
+            {(isCreating || isUpdating) ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Сохранение...
+              </>
+            ) : 'Сохранить'}
           </Button>
         </div>
       </div>

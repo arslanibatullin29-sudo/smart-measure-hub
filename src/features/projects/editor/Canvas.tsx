@@ -39,6 +39,7 @@ function Canvas({
   const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null)
   const [touchDistance, setTouchDistance] = useState<number | null>(null)
   const [touchStartPos, setTouchStartPos] = useState<Point | null>(null) // For tap detection on mobile
+  const [touchStartTime, setTouchStartTime] = useState<number>(0) // For tap timing on mobile
 
   // Адаптивный размер canvas - используем фиксированный большой размер для больших помещений
   useEffect(() => {
@@ -443,6 +444,8 @@ function Canvas({
   
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
+    e.stopPropagation()
+    
     if (e.touches.length === 2) {
       // Два пальца - начало pinch-to-zoom
       const distance = getTouchDistance(e.touches[0], e.touches[1])
@@ -450,16 +453,19 @@ function Canvas({
       const center = getTouchCenter(e.touches[0], e.touches[1])
       setLastPanPoint(center)
       setTouchStartPos(null) // Cancel tap detection
+      setTouchStartTime(0)
     } else if (e.touches.length === 1) {
       const pos = getCanvasCoords(e)
       const pointIndex = findPointAtPosition(pos)
       const touch = e.touches[0]
       
-      // Save touch start position for tap detection
+      // Save touch start position and time for tap detection
       setTouchStartPos({ x: touch.clientX, y: touch.clientY })
+      setTouchStartTime(Date.now())
       
       if (pointIndex !== null) {
         setDraggedPoint(pointIndex)
+        setTouchStartPos(null) // Cancel tap when dragging point
       } else {
         // Prepare for potential pan (will start if finger moves)
         setLastPanPoint({ x: touch.clientX, y: touch.clientY })
@@ -604,9 +610,14 @@ function Canvas({
   
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
+    e.stopPropagation()
+    
     if (e.touches.length === 0) {
-      // If touchStartPos is set and we weren't panning/dragging, this was a tap - add point
-      if (touchStartPos && !isPanning && draggedPoint === null) {
+      const tapDuration = Date.now() - touchStartTime
+      const isTap = tapDuration < 300 // Tap should be less than 300ms
+      
+      // If touchStartPos is set, we weren't panning/dragging, and it was a quick tap - add point
+      if (touchStartPos && !isPanning && draggedPoint === null && isTap) {
         // Get canvas coordinates from the last touch position
         const canvas = canvasRef.current
         if (canvas) {
@@ -628,10 +639,17 @@ function Canvas({
             y: Math.round(y)
           }
           
-          // Only add if not clicking on existing point
-          const existingPoint = findPointAtPosition(snappedPos)
-          if (existingPoint === null) {
-            onPointsChange([...points, snappedPos])
+          // Only add if not clicking on existing point and within canvas bounds
+          if (snappedPos.x >= 0 && snappedPos.y >= 0 && 
+              snappedPos.x <= canvasSize.width && snappedPos.y <= canvasSize.height) {
+            const existingPoint = findPointAtPosition(snappedPos)
+            if (existingPoint === null) {
+              // Haptic feedback for mobile
+              if (navigator.vibrate) {
+                navigator.vibrate(10)
+              }
+              onPointsChange([...points, snappedPos])
+            }
           }
         }
       }
@@ -640,6 +658,7 @@ function Canvas({
       setTouchDistance(null)
       setLastPanPoint(null)
       setTouchStartPos(null)
+      setTouchStartTime(0)
       if (draggedPoint !== null) {
         setDraggedPoint(null)
       }
@@ -650,6 +669,7 @@ function Canvas({
       setLastPanPoint({ x: touch.clientX, y: touch.clientY })
       setTouchDistance(null)
       setTouchStartPos(null)
+      setTouchStartTime(0)
     }
   }
   
