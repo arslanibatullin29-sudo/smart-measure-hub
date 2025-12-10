@@ -416,6 +416,27 @@ export const projectsService = {
           }
         }
 
+        // Дополнительная проверка: ищем по area/perimeter для предотвращения дубликатов
+        const possibleDuplicate = localProjects.find((p: Project) => 
+          typeof p.id === 'number' && 
+          p.customerId === item.customer_id &&
+          Math.abs(p.area - item.area) < 0.01 &&
+          Math.abs(p.perimeter - item.perimeter) < 0.01
+        )
+        
+        if (possibleDuplicate && typeof possibleDuplicate.id === 'number') {
+          console.log('Найден возможный дубликат по area/perimeter, удаляем локальную запись:', possibleDuplicate.id)
+          await db.projects.delete(possibleDuplicate.id)
+          // Удаляем из очереди синхронизации
+          const queueItems = await db.syncQueue
+            .where('table').equals('projects')
+            .and((q: any) => q.recordId === String(possibleDuplicate.id))
+            .toArray()
+          for (const queueItem of queueItems) {
+            await db.syncQueue.delete(queueItem.id!)
+          }
+        }
+
         // Проверяем, нет ли уже записи с таким же UUID (на случай дублирования)
         const existing = await db.projects.get(item.id)
         if (!existing) {
