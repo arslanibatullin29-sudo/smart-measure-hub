@@ -86,8 +86,14 @@ export const projectsService = {
     const now = new Date().toISOString()
     
     let project
+    let actualId: string | number = id
     try {
       project = await db.projects.get(id)
+      // Если не нашли и ID похож на число, пробуем найти по числовому ID
+      if (!project && typeof id === 'string' && /^\d+$/.test(id)) {
+        actualId = Number(id)
+        project = await db.projects.get(actualId)
+      }
     } catch (dbError) {
       console.error('IndexedDB read error:', dbError)
       throw new Error('Ошибка чтения из локальной базы данных')
@@ -108,7 +114,7 @@ export const projectsService = {
     }
 
     try {
-      await db.projects.update(id, updated)
+      await db.projects.update(actualId, updated)
     } catch (dbError: any) {
       console.error('IndexedDB update error:', dbError)
       throw new Error('Ошибка обновления в локальной базе данных')
@@ -118,7 +124,7 @@ export const projectsService = {
     try {
       await db.syncQueue.add({
         table: 'projects',
-        recordId: String(id),
+        recordId: String(actualId),
         operation: 'update',
         data: updated,
         timestamp: now,
@@ -133,10 +139,16 @@ export const projectsService = {
   },
 
   async delete(id: string | number): Promise<void> {
-    const project = await db.projects.get(id)
+    let project = await db.projects.get(id)
+    let actualId: string | number = id
+    // Если не нашли и ID похож на число, пробуем найти по числовому ID
+    if (!project && typeof id === 'string' && /^\d+$/.test(id)) {
+      actualId = Number(id)
+      project = await db.projects.get(actualId)
+    }
     if (!project) throw new Error('Проект не найден')
 
-    await db.projects.delete(id)
+    await db.projects.delete(actualId)
 
     // Если проект был синхронизирован (имеет UUID) или находится в очереди синхронизации
     if (project.id && typeof project.id === 'string') {
