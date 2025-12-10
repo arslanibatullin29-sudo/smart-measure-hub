@@ -16,7 +16,15 @@ export const projectsService = {
   },
 
   async getById(id: string | number): Promise<Project | undefined> {
-    return await db.projects.get(id)
+    // Пробуем найти по строковому ID (UUID из Supabase)
+    let project = await db.projects.get(id)
+    
+    // Если не нашли и ID похож на число, пробуем найти по числовому ID (локальный)
+    if (!project && typeof id === 'string' && /^\d+$/.test(id)) {
+      project = await db.projects.get(Number(id))
+    }
+    
+    return project
   },
 
   async create(data: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'lastSyncedAt' | 'syncStatus'>): Promise<Project> {
