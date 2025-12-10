@@ -158,13 +158,13 @@ export class PDFGenerator {
     if (tableBody.length > 0) {
       autoTable(doc, {
         startY: yPos,
-        head: [['№', 'Наименование', 'Ед.', 'Кол-во', 'Цена, ₽', 'Сумма, ₽']],
+        head: [['№', 'Наименование', 'Ед.', 'Кол-во', 'Цена', 'Сумма']],
         body: tableBody,
         theme: 'grid',
         styles: {
           font: fontName,
           fontSize: 9,
-          cellPadding: 3,
+          cellPadding: 2,
           lineWidth: 0.1,
           lineColor: [180, 180, 180],
         },
@@ -173,15 +173,15 @@ export class PDFGenerator {
           textColor: [255, 255, 255],
           font: fontName,
           halign: 'center',
-          fontSize: 10,
+          fontSize: 9,
         },
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 70 },
-          2: { cellWidth: 15, halign: 'center' },
-          3: { cellWidth: 20, halign: 'right' },
-          4: { cellWidth: 25, halign: 'right' },
-          5: { cellWidth: 30, halign: 'right' },
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 12, halign: 'center' },
+          3: { cellWidth: 18, halign: 'right' },
+          4: { cellWidth: 20, halign: 'right' },
+          5: { cellWidth: 22, halign: 'right' },
         },
         margin: { left: marginLeft, right: marginRight },
       })
