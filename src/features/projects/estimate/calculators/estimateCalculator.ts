@@ -85,15 +85,18 @@ export class EstimateCalculator {
             materialQuantity = baseQuantity * coefficient
         }
 
+        // Округляем количество до 2 знаков для консистентности
+        const roundedQuantity = Math.round(materialQuantity * 100) / 100
+        
         // Рассчитываем стоимость материала (используем цену продажи)
-        const materialTotal = materialQuantity * material.price
+        const materialTotal = roundedQuantity * material.price
         materialsTotal += materialTotal
 
         materialItems.push({
           materialId: String(material.id!),
           materialName: material.name,
           materialUnit: material.unit,
-          materialQuantity,
+          materialQuantity: roundedQuantity,
           materialPrice: material.price,
           materialTotal,
           calculationType: calcType,

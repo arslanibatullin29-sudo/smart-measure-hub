@@ -59,14 +59,16 @@ export class PDFGenerator {
     const contentWidth = pageWidth - marginLeft - marginRight
 
     // Заголовок
-    doc.setFontSize(16)
+    doc.setFontSize(18)
     doc.setFont(fontName, 'normal')
     doc.text('СМЕТА', pageWidth / 2, yPos, { align: 'center' })
     yPos += 10
 
     // Дата
-    doc.setFontSize(10)
-    doc.text(`от ${new Date().toLocaleDateString('ru-RU')}`, pageWidth / 2, yPos, { align: 'center' })
+    const currentDate = new Date()
+    const formattedDate = `${String(currentDate.getDate()).padStart(2, '0')}.${String(currentDate.getMonth() + 1).padStart(2, '0')}.${currentDate.getFullYear()}`
+    doc.setFontSize(11)
+    doc.text(`от ${formattedDate}`, pageWidth / 2, yPos, { align: 'center' })
     yPos += 12
 
     // Блок информации об объекте
@@ -105,7 +107,7 @@ export class PDFGenerator {
     // Параметры помещения
     autoTable(doc, {
       startY: yPos,
-      head: [['Параметры помещения', '', '']],
+      head: [[{ content: 'Параметры помещения', colSpan: 3 }]],
       body: [[
         `Площадь: ${data.project.area.toFixed(2)} м²`,
         `Периметр: ${data.project.perimeter.toFixed(2)} м`,
@@ -114,15 +116,16 @@ export class PDFGenerator {
       theme: 'grid',
       styles: {
         font: fontName,
-        fontSize: 9,
-        cellPadding: 3,
+        fontSize: 10,
+        cellPadding: 4,
         halign: 'center',
       },
       headStyles: {
-        fillColor: [80, 80, 80],
-        textColor: 255,
-        fontStyle: 'bold',
-        halign: 'left',
+        fillColor: [70, 70, 70],
+        textColor: [255, 255, 255],
+        font: fontName,
+        fontSize: 11,
+        halign: 'center',
       },
       margin: { left: marginLeft, right: marginRight },
     })
@@ -167,17 +170,17 @@ export class PDFGenerator {
         theme: 'grid',
         styles: {
           font: fontName,
-          fontSize: 8,
-          cellPadding: 2,
+          fontSize: 9,
+          cellPadding: 3,
           lineWidth: 0.1,
-          lineColor: [200, 200, 200],
+          lineColor: [180, 180, 180],
         },
         headStyles: {
-          fillColor: [60, 60, 60],
-          textColor: 255,
-          fontStyle: 'bold',
+          fillColor: [50, 50, 50],
+          textColor: [255, 255, 255],
+          font: fontName,
           halign: 'center',
-          fontSize: 9,
+          fontSize: 10,
         },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center' },

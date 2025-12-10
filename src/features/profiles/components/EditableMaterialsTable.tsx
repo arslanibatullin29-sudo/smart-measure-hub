@@ -10,6 +10,7 @@ import { syncService } from '@/services/sync/syncService'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { UnitSelect } from '@/shared/components/UnitSelect'
 
 interface EditableMaterialsTableProps {
   materials: Material[]
@@ -38,6 +39,8 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
   const [showNewWorkDialog, setShowNewWorkDialog] = useState(false)
   const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false)
   const [selectedWorkId, setSelectedWorkId] = useState<string | number | null>(null)
+  const [newMaterialUnit, setNewMaterialUnit] = useState('шт')
+  const [editMaterialUnit, setEditMaterialUnit] = useState('шт')
 
   // Функция для обновления данных без сброса состояния таблицы
   const updateDataSilently = useCallback(async () => {
@@ -77,6 +80,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
       onEditMaterial(material)
     } else {
       setEditingMaterial(material)
+      setEditMaterialUnit(material.unit || 'шт')
       setShowMaterialDialog(true)
     }
   }, [onEditMaterial])
@@ -141,7 +145,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
     const formData = new FormData(e.currentTarget)
     const materialData = {
       name: formData.get('name') as string,
-      unit: formData.get('unit') as string,
+      unit: newMaterialUnit,
       price: parseFloat(formData.get('price') as string),
       purchasePrice: formData.get('purchasePrice') ? parseFloat(formData.get('purchasePrice') as string) : undefined,
       totalCost: formData.get('totalCost') ? parseFloat(formData.get('totalCost') as string) : undefined,
@@ -157,6 +161,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
       await triggerSync()
       setShowNewMaterialDialog(false)
       setSelectedWorkId(null)
+      setNewMaterialUnit('шт')
       await updateDataSilently()
       onUpdate()
     } catch (error: any) {
@@ -178,7 +183,7 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
     const formData = new FormData(e.currentTarget)
     const data = {
       name: formData.get('name') as string,
-      unit: formData.get('unit') as string,
+      unit: editMaterialUnit,
       price: parseFloat(formData.get('price') as string),
       purchasePrice: formData.get('purchasePrice') ? parseFloat(formData.get('purchasePrice') as string) : undefined,
       totalCost: formData.get('totalCost') ? parseFloat(formData.get('totalCost') as string) : undefined,
@@ -549,37 +554,14 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
           <DialogHeader>
             <DialogTitle>Новая спецификация</DialogTitle>
             <DialogDescription>
-              Заполните данные для новой спецификации
+              Введите название для новой спецификации
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateWork}>
             <div className="space-y-4 py-4">
               <div>
-                <Label htmlFor="newWorkName">Наименование</Label>
+                <Label htmlFor="newWorkName">Название</Label>
                 <Input id="newWorkName" name="name" required />
-              </div>
-              <div>
-                <Label htmlFor="newWorkUnit">Единица измерения</Label>
-                <Input id="newWorkUnit" name="unit" defaultValue="шт" required />
-              </div>
-              <div>
-                <Label htmlFor="newWorkPrice">Стоимость работы</Label>
-                <Input id="newWorkPrice" name="workPrice" type="number" step="any" defaultValue="0" required />
-              </div>
-              <div>
-                <Label htmlFor="newWorkCalculationType">Тип расчета</Label>
-                <select
-                  id="newWorkCalculationType"
-                  name="calculationType"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  defaultValue="byArea"
-                  required
-                >
-                  <option value="byArea">По площади</option>
-                  <option value="byPerimeter">По периметру</option>
-                  <option value="byCount">По количеству</option>
-                  <option value="fixed">Фиксированное</option>
-                </select>
               </div>
             </div>
             <DialogFooter>
@@ -637,8 +619,8 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                 <Input id="newMaterialName" name="name" required />
               </div>
               <div>
-                <Label htmlFor="newMaterialUnit">Единица измерения</Label>
-                <Input id="newMaterialUnit" name="unit" required />
+                <Label>Единица измерения</Label>
+                <UnitSelect value={newMaterialUnit} onChange={(val) => setNewMaterialUnit(val)} />
               </div>
               <div>
                 <Label htmlFor="newMaterialPrice">Цена продажи</Label>
@@ -705,8 +687,8 @@ export function EditableMaterialsTable({ materials, works, onUpdate, onEditMater
                 <Input id="name" name="name" defaultValue={editingMaterial?.name} required />
               </div>
               <div>
-                <Label htmlFor="unit">Единица измерения</Label>
-                <Input id="unit" name="unit" defaultValue={editingMaterial?.unit} required />
+                <Label>Единица измерения</Label>
+                <UnitSelect value={editMaterialUnit} onChange={(val) => setEditMaterialUnit(val)} />
               </div>
               <div>
                 <Label htmlFor="price">Цена продажи</Label>

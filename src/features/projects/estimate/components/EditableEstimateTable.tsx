@@ -479,11 +479,16 @@ function AddMaterialDialog({ open, onClose, isNewGroup, onSubmit }: AddMaterialD
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="unit">Ед.изм</Label>
-              <Input
-                id="unit"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-              />
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ед.изм" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border">
+                  <SelectItem value="шт">шт</SelectItem>
+                  <SelectItem value="м">м</SelectItem>
+                  <SelectItem value="см">см</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="calculationType">Тип расчёта</Label>
