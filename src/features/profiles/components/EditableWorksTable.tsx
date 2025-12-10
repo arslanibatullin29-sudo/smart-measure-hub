@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Trash2, Save, X, Edit } from 'lucide-react'
 import { CalculationTypeSelect } from '@/shared/components/CalculationTypeSelect'
+import { UnitSelect } from '@/shared/components/UnitSelect'
 import { handleError, handleSuccess } from '@/shared/utils/errorHandler'
 import { validators } from '@/shared/utils/validators'
 
@@ -104,9 +105,9 @@ export function EditableWorksTable({ works, onUpdate }: EditableWorksTableProps)
                 </TableCell>
                 <TableCell>
                   {isEditing ? (
-                    <Input
-                      value={editedWork?.unit || ''}
-                      onChange={(e) => handleFieldChange('unit', e.target.value)}
+                    <UnitSelect
+                      value={editedWork?.unit || 'шт'}
+                      onChange={(value) => handleFieldChange('unit', value)}
                       className="w-20"
                     />
                   ) : (
