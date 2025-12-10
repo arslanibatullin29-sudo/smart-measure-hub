@@ -210,13 +210,13 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[35%]">Наименование</TableHead>
-              <TableHead className="text-center w-[10%]">Ед.изм</TableHead>
-              <TableHead className="text-center w-[10%]">Расчёт</TableHead>
-              <TableHead className="text-right w-[12%]">Кол-во</TableHead>
-              <TableHead className="text-right w-[13%]">Цена</TableHead>
-              <TableHead className="text-right w-[12%]">Сумма</TableHead>
-              {!readOnly && <TableHead className="w-[8%]">Действия</TableHead>}
+              <TableHead className="w-[35%] md:w-[35%]">Наименование</TableHead>
+              <TableHead className="text-center w-[10%] hidden md:table-cell">Ед.изм</TableHead>
+              <TableHead className="text-center w-[10%] hidden md:table-cell">Расчёт</TableHead>
+              <TableHead className="text-right w-[15%] md:w-[12%]">Кол-во</TableHead>
+              <TableHead className="text-right w-[18%] md:w-[13%]">Цена</TableHead>
+              <TableHead className="text-right w-[17%] md:w-[12%]">Сумма</TableHead>
+              {!readOnly && <TableHead className="w-[15%] md:w-[8%]">Действия</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -264,9 +264,9 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
                   {/* Материалы */}
                   {item.materials.map((material) => (
                     <TableRow key={material.materialId} className="text-muted-foreground">
-                      <TableCell className="pl-8">— {material.materialName}</TableCell>
-                      <TableCell className="text-center">{material.materialUnit}</TableCell>
-                      <TableCell className="text-center text-xs">
+                      <TableCell className="pl-4 md:pl-8 text-sm md:text-base">— {material.materialName}</TableCell>
+                      <TableCell className="text-center hidden md:table-cell">{material.materialUnit}</TableCell>
+                      <TableCell className="text-center text-xs hidden md:table-cell">
                         {getCalculationTypeLabel(material.calculationType)}
                       </TableCell>
                       <TableCell 
