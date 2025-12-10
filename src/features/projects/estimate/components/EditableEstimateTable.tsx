@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface EditableEstimateTableProps {
@@ -21,10 +21,25 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
   const [selectedWorkId, setSelectedWorkId] = useState<string | null>(null)
   const [editingCell, setEditingCell] = useState<{ workId: string; materialId: string; field: string } | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     setLocalEstimate(estimate)
+    // Expand all groups by default
+    setExpandedGroups(new Set(estimate.items.map(item => item.workId)))
   }, [estimate])
+
+  const toggleGroup = (workId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(workId)) {
+        next.delete(workId)
+      } else {
+        next.add(workId)
+      }
+      return next
+    })
+  }
 
   const recalculateTotal = (items: EstimateItem[]): EstimateResult => {
     const total = items.reduce((sum, item) => sum + item.workTotalWithMaterials, 0)
@@ -104,6 +119,7 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
     setLocalEstimate(newEstimate)
     onEstimateChange(newEstimate)
     setShowAddDialog(false)
+    setExpandedGroups(prev => new Set([...prev, newItem.workId]))
     toast.success('Группа материалов добавлена')
   }
 
@@ -119,7 +135,7 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
         }
       }
       return item
-    }).filter(item => item.materials.length > 0) // Удаляем пустые группы
+    }).filter(item => item.materials.length > 0)
 
     const newEstimate = recalculateTotal(updatedItems)
     setLocalEstimate(newEstimate)
@@ -195,157 +211,309 @@ export function EditableEstimateTable({ estimate, onEstimateChange, readOnly = f
     }
   }
 
+  // Mobile Card View
+  const MobileView = () => (
+    <div className="space-y-2 pb-16">
+      {localEstimate.items.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          Нет материалов в смете. Добавьте группу материалов.
+        </div>
+      ) : (
+        localEstimate.items.map((item) => (
+          <div key={item.workId} className="border rounded-lg overflow-hidden bg-card">
+            {/* Group Header */}
+            <div 
+              className="flex items-center justify-between px-3 py-2 bg-muted/50 cursor-pointer"
+              onClick={() => toggleGroup(item.workId)}
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {expandedGroups.has(item.workId) ? (
+                  <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="font-semibold text-sm truncate">{item.workName}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm whitespace-nowrap">
+                  {item.workTotalWithMaterials.toFixed(2)} ₽
+                </span>
+                {!readOnly && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-destructive shrink-0"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteGroup(item.workId) }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Materials */}
+            {expandedGroups.has(item.workId) && (
+              <div className="divide-y">
+                {item.materials.map((material) => (
+                  <div key={material.materialId} className="px-3 py-2 bg-background">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{material.materialName}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {getCalculationTypeLabel(material.calculationType)} — {' '}
+                          {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'quantity' ? (
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={handleSaveEdit}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                              className="w-16 h-6 text-xs inline-block"
+                              autoFocus
+                            />
+                          ) : (
+                            <span 
+                              className={!readOnly ? 'cursor-pointer underline underline-offset-2' : ''}
+                              onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'quantity', material.materialQuantity)}
+                            >
+                              {material.materialQuantity.toFixed(2)}
+                            </span>
+                          )} × {' '}
+                          {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'price' ? (
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={handleSaveEdit}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                              className="w-20 h-6 text-xs inline-block"
+                              autoFocus
+                            />
+                          ) : (
+                            <span 
+                              className={!readOnly ? 'cursor-pointer underline underline-offset-2' : ''}
+                              onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'price', material.materialPrice)}
+                            >
+                              {material.materialPrice.toFixed(2)} ₽
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold mt-1">
+                          Сумма: {material.materialTotal.toFixed(2)} ₽
+                        </div>
+                      </div>
+                      {!readOnly && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive shrink-0"
+                          onClick={() => handleDeleteMaterial(item.workId, material.materialId)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add material button inside group */}
+                {!readOnly && (
+                  <div className="px-3 py-2 bg-muted/20">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="w-full h-7 text-xs text-muted-foreground"
+                      onClick={() => openAddMaterialDialog(item.workId)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Добавить позицию
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {/* Sticky Total Footer */}
+      {localEstimate.items.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between shadow-lg z-50 md:hidden">
+          <span className="font-bold">ИТОГО:</span>
+          <span className="font-bold text-lg">{localEstimate.total.toFixed(2)} ₽</span>
+        </div>
+      )}
+    </div>
+  )
+
+  // Desktop Table View
+  const DesktopView = () => (
+    <div className="overflow-x-auto border rounded-lg">
+      <Table className="text-sm">
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            <TableHead className="w-[35%]">Наименование</TableHead>
+            <TableHead className="text-center w-[10%]">Ед.изм</TableHead>
+            <TableHead className="text-center w-[10%]">Расчёт</TableHead>
+            <TableHead className="text-right w-[12%]">Кол-во</TableHead>
+            <TableHead className="text-right w-[13%]">Цена</TableHead>
+            <TableHead className="text-right w-[12%]">Сумма</TableHead>
+            {!readOnly && <TableHead className="w-[8%]"></TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {localEstimate.items.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={readOnly ? 6 : 7} className="text-center py-8 text-muted-foreground">
+                Нет материалов в смете. Добавьте группу материалов.
+              </TableCell>
+            </TableRow>
+          ) : (
+            localEstimate.items.map((item) => (
+              <>
+                {/* Group Header */}
+                <TableRow key={item.workId} className="bg-muted/30">
+                  <TableCell colSpan={5} className="font-semibold">{item.workName}</TableCell>
+                  <TableCell className="text-right font-bold font-mono">
+                    {item.workTotalWithMaterials.toFixed(2)} ₽
+                  </TableCell>
+                  {!readOnly && (
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => openAddMaterialDialog(item.workId)}
+                          title="Добавить материал"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive"
+                          onClick={() => handleDeleteGroup(item.workId)}
+                          title="Удалить группу"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+
+                {/* Materials */}
+                {item.materials.map((material) => (
+                  <TableRow key={material.materialId} className="text-muted-foreground">
+                    <TableCell className="pl-8">— {material.materialName}</TableCell>
+                    <TableCell className="text-center">{material.materialUnit}</TableCell>
+                    <TableCell className="text-center text-xs">
+                      {getCalculationTypeLabel(material.calculationType)}
+                    </TableCell>
+                    <TableCell 
+                      className={`text-right ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
+                      onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'quantity', material.materialQuantity)}
+                    >
+                      {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'quantity' ? (
+                        <Input 
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={handleSaveEdit}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                          className="w-20 h-8 text-right"
+                          autoFocus
+                        />
+                      ) : (
+                        material.materialQuantity.toFixed(2)
+                      )}
+                    </TableCell>
+                    <TableCell 
+                      className={`text-right ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
+                      onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'price', material.materialPrice)}
+                    >
+                      {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'price' ? (
+                        <Input 
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={handleSaveEdit}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                          className="w-24 h-8 text-right"
+                          autoFocus
+                        />
+                      ) : (
+                        material.materialPrice.toFixed(2)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{material.materialTotal.toFixed(2)}</TableCell>
+                    {!readOnly && (
+                      <TableCell>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive"
+                          onClick={() => handleDeleteMaterial(item.workId, material.materialId)}
+                          title="Удалить материал"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </>
+            ))
+          )}
+
+          {/* Total */}
+          {localEstimate.items.length > 0 && (
+            <TableRow className="bg-primary/10 font-bold text-lg">
+              <TableCell colSpan={5} className="text-right">
+                ИТОГО:
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {localEstimate.total.toFixed(2)} ₽
+              </TableCell>
+              {!readOnly && <TableCell />}
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+
   return (
     <div className="space-y-2 md:space-y-4">
       {!readOnly && (
-        <div className="flex justify-end gap-2">
-          <Button onClick={() => openAddMaterialDialog(null)} size="sm" variant="outline" className="text-xs md:text-sm h-8 md:h-9 px-2 md:px-3">
-            <Plus className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+        <div className="flex justify-end">
+          <Button onClick={() => openAddMaterialDialog(null)} size="sm" variant="outline" className="text-xs md:text-sm">
+            <Plus className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5" />
             Добавить группу
           </Button>
         </div>
       )}
 
-      <div className="overflow-x-auto border rounded-lg">
-        <Table className="text-xs md:text-sm">
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="w-[38%] md:w-[35%] px-1.5 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Наименование</TableHead>
-              <TableHead className="text-center hidden md:table-cell w-[10%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Ед.изм</TableHead>
-              <TableHead className="text-center w-[12%] md:w-[10%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Расчёт</TableHead>
-              <TableHead className="text-right w-[14%] md:w-[12%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Кол-во</TableHead>
-              <TableHead className="text-right w-[14%] md:w-[13%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Цена</TableHead>
-              <TableHead className="text-right w-[16%] md:w-[12%] px-1 md:px-4 py-1.5 md:py-3 text-[10px] md:text-sm">Сумма</TableHead>
-              {!readOnly && <TableHead className="w-[6%] md:w-[8%] px-0.5 md:px-2"></TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {localEstimate.items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={readOnly ? 6 : 7} className="text-center py-8 text-muted-foreground">
-                  Нет материалов в смете. Добавьте группу материалов.
-                </TableCell>
-              </TableRow>
-            ) : (
-              localEstimate.items.map((item) => (
-                <>
-                  {/* Заголовок группы */}
-                  <TableRow key={item.workId} className="bg-muted/30">
-                    <TableCell colSpan={5} className="font-semibold text-xs md:text-sm px-1.5 md:px-4 py-1.5 md:py-3">{item.workName}</TableCell>
-                    <TableCell className="text-right font-bold font-mono text-xs md:text-sm px-1 md:px-4 py-1.5 md:py-3">
-                      {item.workTotalWithMaterials.toFixed(2)} ₽
-                    </TableCell>
-                    {!readOnly && (
-                      <TableCell className="px-0.5 md:px-2 py-1">
-                        <div className="flex gap-0.5">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 md:h-7 md:w-7"
-                            onClick={() => openAddMaterialDialog(item.workId)}
-                            title="Добавить материал"
-                          >
-                            <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 md:h-7 md:w-7 text-destructive"
-                            onClick={() => handleDeleteGroup(item.workId)}
-                            title="Удалить группу"
-                          >
-                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-
-                  {/* Материалы */}
-                  {item.materials.map((material) => (
-                    <TableRow key={material.materialId} className="text-muted-foreground">
-                      <TableCell className="pl-2 md:pl-8 pr-1 md:pr-4 py-1 md:py-3 text-[10px] md:text-sm">— {material.materialName}</TableCell>
-                      <TableCell className="text-center hidden md:table-cell text-xs md:text-sm px-1 md:px-4 py-1 md:py-3">{material.materialUnit}</TableCell>
-                      <TableCell className="text-center text-[10px] md:text-xs px-0.5 md:px-4 py-1 md:py-3">
-                        {getCalculationTypeLabel(material.calculationType)}
-                      </TableCell>
-                      <TableCell 
-                        className={`text-right text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3 ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
-                        onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'quantity', material.materialQuantity)}
-                      >
-                        {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'quantity' ? (
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleSaveEdit}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                            className="w-14 md:w-20 h-6 md:h-8 text-right text-xs"
-                            autoFocus
-                          />
-                        ) : (
-                          material.materialQuantity.toFixed(2)
-                        )}
-                      </TableCell>
-                      <TableCell 
-                        className={`text-right text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3 ${!readOnly ? 'cursor-pointer hover:bg-muted' : ''}`}
-                        onClick={() => !readOnly && handleStartEdit(item.workId, material.materialId, 'price', material.materialPrice)}
-                      >
-                        {editingCell?.workId === item.workId && editingCell.materialId === material.materialId && editingCell.field === 'price' ? (
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleSaveEdit}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                            className="w-16 md:w-24 h-6 md:h-8 text-right text-xs"
-                            autoFocus
-                          />
-                        ) : (
-                          material.materialPrice.toFixed(2)
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-[10px] md:text-sm px-1 md:px-4 py-1 md:py-3">{material.materialTotal.toFixed(2)}</TableCell>
-                      {!readOnly && (
-                        <TableCell className="px-0.5 md:px-2 py-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 md:h-7 md:w-7 text-destructive"
-                            onClick={() => handleDeleteMaterial(item.workId, material.materialId)}
-                            title="Удалить материал"
-                          >
-                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </>
-              ))
-            )}
-
-            {/* Общий итог */}
-            {localEstimate.items.length > 0 && (
-              <TableRow className="bg-primary/10 font-bold text-sm md:text-lg">
-                <TableCell colSpan={5} className="text-right px-1.5 md:px-4 py-2 md:py-3">
-                  ИТОГО:
-                </TableCell>
-                <TableCell className="text-right font-mono px-1 md:px-4 py-2 md:py-3">
-                  {localEstimate.total.toFixed(2)} ₽
-                </TableCell>
-                {!readOnly && <TableCell className="px-0.5 md:px-2" />}
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      {/* Mobile View */}
+      <div className="block md:hidden">
+        <MobileView />
       </div>
 
-      {/* Диалог добавления */}
+      {/* Desktop View */}
+      <div className="hidden md:block">
+        <DesktopView />
+      </div>
+
+      {/* Dialog */}
       <AddMaterialDialog
         open={showAddDialog}
         onClose={() => {
@@ -442,7 +610,7 @@ function AddMaterialDialog({ open, onClose, isNewGroup, onSubmit }: AddMaterialD
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-[95vw] sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {isNewGroup ? 'Добавить группу материалов' : 'Добавить материал'}
@@ -476,7 +644,7 @@ function AddMaterialDialog({ open, onClose, isNewGroup, onSubmit }: AddMaterialD
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="unit">Ед.изм</Label>
               <Select value={unit} onValueChange={setUnit}>
@@ -496,16 +664,16 @@ function AddMaterialDialog({ open, onClose, isNewGroup, onSubmit }: AddMaterialD
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border">
                   <SelectItem value="byArea">По площади (м²)</SelectItem>
-                  <SelectItem value="byPerimeter">По периметру (п.м.)</SelectItem>
-                  <SelectItem value="byCount">По количеству элементов</SelectItem>
+                  <SelectItem value="byPerimeter">По периметру</SelectItem>
+                  <SelectItem value="byCount">По кол-ву</SelectItem>
                   <SelectItem value="fixed">Фиксированное</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="quantity">Количество</Label>
               <Input
@@ -529,7 +697,7 @@ function AddMaterialDialog({ open, onClose, isNewGroup, onSubmit }: AddMaterialD
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={onClose}>
               Отмена
             </Button>
