@@ -140,10 +140,9 @@ function ProfilesList() {
 
     const formData = new FormData(e.currentTarget)
     const name = formData.get('name') as string
-    const isDefault = formData.get('isDefault') === 'on'
 
     try {
-      const newProfile = await profileService.createProfile(user.id, name, isDefault)
+      const newProfile = await profileService.createProfile(user.id, name, false)
       setShowProfileDialog(false)
       handleSuccess('Профиль создан')
       await loadProfiles()
@@ -373,11 +372,7 @@ function ProfilesList() {
             <div className="space-y-3 py-3">
               <div>
                 <Label htmlFor="name" className="text-sm">Название</Label>
-                <Input id="name" name="name" required className="mt-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="isDefault" name="isDefault" className="rounded" />
-                <Label htmlFor="isDefault" className="text-sm font-normal">По умолчанию</Label>
+                <Input id="name" name="name" required className="mt-1" placeholder="Введите название профиля" />
               </div>
             </div>
             <DialogFooter>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LoadingBar } from '@/components/LoadingBar'
-import { ArrowLeft, Plus, FileText, Edit, Trash2, Square, Maximize2, Grid3X3, Layers } from 'lucide-react'
+import { ArrowLeft, Plus, FileText, Edit, Trash2, Square, Maximize2, Grid3X3 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useState } from 'react'
@@ -16,6 +16,8 @@ function ProjectsList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null)
 
+  // Показываем все проекты (удалённые отфильтрованы на уровне сервиса)
+
   const handleDelete = async (id: string) => {
     setProjectToDelete(id)
     setDeleteDialogOpen(true)
@@ -25,7 +27,7 @@ function ProjectsList() {
     if (projectToDelete) {
       try {
         await deleteProject(projectToDelete)
-        toast.success('Проект удален')
+        toast.success('Объект удален')
         setDeleteDialogOpen(false)
         setProjectToDelete(null)
       } catch (error: any) {
@@ -50,8 +52,8 @@ function ProjectsList() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Проекты</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Управление проектами</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">Объекты</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Управление объектами</p>
           </div>
         </div>
         <Button
@@ -86,7 +88,7 @@ function ProjectsList() {
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-8 sm:py-12">
-          <p className="text-muted-foreground mb-4 text-sm">Нет проектов</p>
+          <p className="text-muted-foreground mb-4 text-sm">Нет объектов</p>
           <Button
             onClick={() => navigate(`/customers/${customerId}/projects/new`)}
             size="sm"
@@ -102,33 +104,26 @@ function ProjectsList() {
             <Card key={project.id} className="group hover:shadow-md transition-shadow">
               <CardContent className="p-3 sm:p-4">
                 {/* Компактная сетка параметров */}
-                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md" title="Площадь рассчитывается автоматически по нарисованному контуру">
                     <Square className="h-3.5 w-3.5 text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Площадь</p>
-                      <p className="text-sm font-semibold font-mono">{project.area.toFixed(1)} м²</p>
+                      <p className="text-sm font-semibold font-mono">{project.area.toFixed(2)} м²</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md" title="Периметр рассчитывается автоматически по контуру">
                     <Maximize2 className="h-3.5 w-3.5 text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Периметр</p>
-                      <p className="text-sm font-semibold font-mono">{project.perimeter.toFixed(1)} м</p>
+                      <p className="text-sm font-semibold font-mono">{project.perimeter.toFixed(2)} м</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md" title="Количество углов в контуре помещения">
                     <Grid3X3 className="h-3.5 w-3.5 text-muted-foreground" />
                     <div>
                       <p className="text-xs text-muted-foreground">Углов</p>
                       <p className="text-sm font-semibold">{project.points.length}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                    <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Элементов</p>
-                      <p className="text-sm font-semibold">{project.elementCount}</p>
                     </div>
                   </div>
                 </div>
@@ -174,7 +169,7 @@ function ProjectsList() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Удалить проект?</DialogTitle>
+            <DialogTitle>Удалить объект?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Это действие необратимо.</p>
           <DialogFooter className="gap-2 sm:gap-0">

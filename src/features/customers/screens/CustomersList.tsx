@@ -113,7 +113,7 @@ function CustomersList() {
                     className="flex-1 h-8 text-xs sm:text-sm"
                   >
                     <FolderOpen className="h-3.5 w-3.5 mr-1" />
-                    Проекты
+                    Объекты
                   </Button>
                   <Button
                     onClick={() => setEditingCustomer({ 

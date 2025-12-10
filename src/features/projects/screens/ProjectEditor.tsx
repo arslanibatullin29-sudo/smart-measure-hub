@@ -6,7 +6,6 @@ import { projectsService } from '../services/projectsService'
 import { useProjects } from '../hooks/useProjects'
 import { profileService } from '../estimate/profile/services/profileService'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
@@ -21,7 +20,6 @@ function ProjectEditor() {
   const [points, setPoints] = useState<Array<{ x: number; y: number }>>([])
   const [area, setArea] = useState(0)
   const [perimeter, setPerimeter] = useState(0)
-  const [elementCount, setElementCount] = useState(0)
   const [profiles, setProfiles] = useState<InstallationProfile[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
 
@@ -38,7 +36,6 @@ function ProjectEditor() {
           setPoints(project.points)
           setArea(project.area)
           setPerimeter(project.perimeter)
-          setElementCount(project.elementCount)
           setSelectedProfileId(project.profileId || null)
         }
       })
@@ -65,7 +62,7 @@ function ProjectEditor() {
 
   const handleSave = async () => {
     if (!customerId || !user?.id || points.length < 3) {
-      toast.error('Добавьте минимум 3 точки для сохранения проекта')
+      toast.error('Добавьте минимум 3 точки для сохранения объекта')
       return
     }
 
@@ -77,16 +74,16 @@ function ProjectEditor() {
         points,
         area,
         perimeter,
-        elementCount,
+        elementCount: 0, // Всегда 0, так как элементы больше не используются
         estimateData: null,
       }
 
       if (projectId) {
         await updateProject({ id: projectId, data: projectData })
-        toast.success('Проект обновлен')
+        toast.success('Объект обновлен')
       } else {
         await createProject(projectData)
-        toast.success('Проект создан')
+        toast.success('Объект создан')
       }
 
       // Навигация происходит после успешного создания/обновления
@@ -112,7 +109,7 @@ function ProjectEditor() {
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">
-              {projectId ? 'Редактировать проект' : 'Новый проект'}
+              {projectId ? 'Редактировать объект' : 'Новый объект'}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 hidden sm:block">
               Нарисуйте план помещения, кликая по canvas для добавления точек
@@ -175,36 +172,33 @@ function ProjectEditor() {
         </Card>
       )}
 
-      {/* Parameters Card */}
+      {/* Параметры помещения - добавляем визуальные подсказки */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base sm:text-lg">Параметры помещения</CardTitle>
+          <p className="text-xs text-muted-foreground">Значения рассчитываются автоматически на основе нарисованного контура</p>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-            <div className="space-y-1 sm:space-y-2">
-              <Label className="text-muted-foreground text-xs sm:text-sm">Площадь</Label>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            <div className="space-y-1 sm:space-y-2" title="Площадь = сумма площадей треугольников контура (формула Шнурка)">
+              <Label className="text-muted-foreground text-xs sm:text-sm flex items-center gap-1">
+                Площадь
+                <span className="text-[10px] text-primary">(авто)</span>
+              </Label>
               <div className="text-lg sm:text-xl md:text-2xl font-semibold font-mono">{area.toFixed(2)} м²</div>
+              <p className="text-[10px] text-muted-foreground">Используется для расчёта материалов "по площади"</p>
             </div>
-            <div className="space-y-1 sm:space-y-2">
-              <Label className="text-muted-foreground text-xs sm:text-sm">Периметр</Label>
+            <div className="space-y-1 sm:space-y-2" title="Периметр = сумма длин всех сторон контура">
+              <Label className="text-muted-foreground text-xs sm:text-sm flex items-center gap-1">
+                Периметр
+                <span className="text-[10px] text-primary">(авто)</span>
+              </Label>
               <div className="text-lg sm:text-xl md:text-2xl font-semibold font-mono">{perimeter.toFixed(2)} м</div>
+              <p className="text-[10px] text-muted-foreground">Используется для расчёта материалов "по периметру"</p>
             </div>
-            <div className="space-y-1 sm:space-y-2">
+            <div className="space-y-1 sm:space-y-2" title="Количество точек/углов в контуре">
               <Label className="text-muted-foreground text-xs sm:text-sm">Углов</Label>
               <div className="text-lg sm:text-xl md:text-2xl font-semibold font-mono">{points.length}</div>
-            </div>
-            <div className="space-y-1 sm:space-y-2 col-span-2 sm:col-span-1">
-              <Label htmlFor="elementCount" className="text-xs sm:text-sm">Элементов</Label>
-              <Input
-                id="elementCount"
-                type="number"
-                value={elementCount}
-                onChange={(e) => setElementCount(parseInt(e.target.value) || 0)}
-                min="0"
-                placeholder="0"
-                className="h-11 sm:h-10 text-base sm:text-sm touch-manipulation"
-              />
             </div>
           </div>
         </CardContent>
