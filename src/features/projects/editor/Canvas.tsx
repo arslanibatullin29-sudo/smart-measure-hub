@@ -206,7 +206,11 @@ function Canvas({
     }
     ctx.stroke()
 
-    ctx.font = 'bold 13px Inter, sans-serif'
+    // Adaptive sizing based on zoom - keep visual size constant on screen
+    const adaptiveScale = 1 / zoom
+    const baseFontSize = 13 * adaptiveScale
+    const basePadding = 8 * adaptiveScale
+    const baseTextHeight = 18 * adaptiveScale
     
     for (let i = 0; i < points.length; i++) {
       const next = (i + 1) % points.length
@@ -222,28 +226,26 @@ function Canvas({
         ? `${lengthInMeters.toFixed(2)} м`
         : `${(lengthInMeters * 100).toFixed(0)} см`
       
-      ctx.font = 'bold 13px Inter, sans-serif'
+      ctx.font = `bold ${baseFontSize}px Inter, sans-serif`
       const textMetrics = ctx.measureText(lengthText)
       const textWidth = textMetrics.width
-      const textHeight = 18
-      const padding = 8
       
       ctx.save()
       
       ctx.fillStyle = getCSSColor('--background')
       ctx.strokeStyle = getCSSColor('--canvas-line')
-      ctx.lineWidth = 2 / zoom
+      ctx.lineWidth = 2 * adaptiveScale
       ctx.fillRect(
-        midX - textWidth / 2 - padding, 
-        midY - textHeight / 2 - padding / 2, 
-        textWidth + padding * 2, 
-        textHeight + padding
+        midX - textWidth / 2 - basePadding, 
+        midY - baseTextHeight / 2 - basePadding / 2, 
+        textWidth + basePadding * 2, 
+        baseTextHeight + basePadding
       )
       ctx.strokeRect(
-        midX - textWidth / 2 - padding, 
-        midY - textHeight / 2 - padding / 2, 
-        textWidth + padding * 2, 
-        textHeight + padding
+        midX - textWidth / 2 - basePadding, 
+        midY - baseTextHeight / 2 - basePadding / 2, 
+        textWidth + basePadding * 2, 
+        baseTextHeight + basePadding
       )
       
       ctx.fillStyle = getCSSColor('--canvas-line')
@@ -254,10 +256,14 @@ function Canvas({
       ctx.restore()
     }
 
+    // Adaptive point sizing based on zoom
+    const basePointRadius = 9 * adaptiveScale
+    const pointNumberFontSize = 11 * adaptiveScale
+    
     points.forEach((point, index) => {
       const isHovered = hoveredPoint === index
       const isDragged = draggedPoint === index
-      const pointRadius = isDragged ? 12 : isHovered ? 11 : 9
+      const pointRadius = isDragged ? basePointRadius * 1.33 : isHovered ? basePointRadius * 1.22 : basePointRadius
       
       ctx.save()
       
@@ -265,15 +271,15 @@ function Canvas({
         const pointColor = getCSSColor('--canvas-point')
         const pointColorWithAlpha = pointColor.replace('hsl(', 'hsla(').replace(')', `, ${isDragged ? 0.2 : 0.15})`)
         ctx.beginPath()
-        ctx.arc(point.x, point.y, pointRadius + 4, 0, Math.PI * 2)
+        ctx.arc(point.x, point.y, pointRadius + 4 * adaptiveScale, 0, Math.PI * 2)
         ctx.fillStyle = pointColorWithAlpha
         ctx.fill()
       }
       
       ctx.shadowColor = 'hsla(0, 0%, 0%, 0.3)'
-      ctx.shadowBlur = isDragged ? 8 : isHovered ? 6 : 4
+      ctx.shadowBlur = (isDragged ? 8 : isHovered ? 6 : 4) * adaptiveScale
       ctx.shadowOffsetX = 0
-      ctx.shadowOffsetY = 2
+      ctx.shadowOffsetY = 2 * adaptiveScale
       
       ctx.beginPath()
       ctx.arc(point.x, point.y, pointRadius, 0, Math.PI * 2)
@@ -307,22 +313,23 @@ function Canvas({
       ctx.fill()
       
       ctx.strokeStyle = getCSSColor('--background')
-      ctx.lineWidth = isDragged ? 3 : isHovered ? 2.5 : 2
+      ctx.lineWidth = (isDragged ? 3 : isHovered ? 2.5 : 2) * adaptiveScale
       ctx.stroke()
       
       ctx.restore()
 
       ctx.save()
-      ctx.font = isDragged || isHovered 
-        ? 'bold 12px Inter, sans-serif' 
-        : 'bold 11px Inter, sans-serif'
+      const numberFontSize = isDragged || isHovered 
+        ? pointNumberFontSize * 1.09 
+        : pointNumberFontSize
+      ctx.font = `bold ${numberFontSize}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       
       ctx.shadowColor = 'hsla(0, 0%, 0%, 0.5)'
-      ctx.shadowBlur = 2
+      ctx.shadowBlur = 2 * adaptiveScale
       ctx.shadowOffsetX = 0
-      ctx.shadowOffsetY = 1
+      ctx.shadowOffsetY = 1 * adaptiveScale
       
       ctx.fillStyle = getCSSColor('--background')
       ctx.fillText(`${index + 1}`, point.x, point.y)
@@ -331,15 +338,18 @@ function Canvas({
 
     if (showDiagonals && points.length >= 4) {
       const diagonals = getRoomDiagonals(points)
+      const diagFontSize = 12 * adaptiveScale
+      const diagTextHeight = 16 * adaptiveScale
+      const diagPadding = 6 * adaptiveScale
       
       diagonals.forEach((diagonal, index) => {
         const p1 = points[diagonal.start]
         const p2 = points[diagonal.end]
         
         ctx.beginPath()
-        ctx.setLineDash([8, 4])
+        ctx.setLineDash([8 * adaptiveScale, 4 * adaptiveScale])
         ctx.strokeStyle = selectedDiagonal === index ? 'hsl(45, 90%, 50%)' : 'hsla(45, 80%, 50%, 0.6)'
-        ctx.lineWidth = selectedDiagonal === index ? 3 / zoom : 2 / zoom
+        ctx.lineWidth = (selectedDiagonal === index ? 3 : 2) * adaptiveScale
         ctx.moveTo(p1.x, p1.y)
         ctx.lineTo(p2.x, p2.y)
         ctx.stroke()
@@ -351,27 +361,25 @@ function Canvas({
         const lengthInMeters = lengthInPixels / scale / 100
         const lengthText = `${lengthInMeters.toFixed(2)} м`
         
-        ctx.font = 'bold 12px Inter, sans-serif'
+        ctx.font = `bold ${diagFontSize}px Inter, sans-serif`
         const textMetrics = ctx.measureText(lengthText)
         const textWidth = textMetrics.width
-        const textHeight = 16
-        const padding = 6
         
         ctx.save()
         ctx.fillStyle = 'hsl(45, 80%, 95%)'
         ctx.strokeStyle = 'hsl(45, 80%, 50%)'
-        ctx.lineWidth = 1.5 / zoom
+        ctx.lineWidth = 1.5 * adaptiveScale
         ctx.fillRect(
-          midX - textWidth / 2 - padding, 
-          midY - textHeight / 2 - padding / 2, 
-          textWidth + padding * 2, 
-          textHeight + padding
+          midX - textWidth / 2 - diagPadding, 
+          midY - diagTextHeight / 2 - diagPadding / 2, 
+          textWidth + diagPadding * 2, 
+          diagTextHeight + diagPadding
         )
         ctx.strokeRect(
-          midX - textWidth / 2 - padding, 
-          midY - textHeight / 2 - padding / 2, 
-          textWidth + padding * 2, 
-          textHeight + padding
+          midX - textWidth / 2 - diagPadding, 
+          midY - diagTextHeight / 2 - diagPadding / 2, 
+          textWidth + diagPadding * 2, 
+          diagTextHeight + diagPadding
         )
         
         ctx.fillStyle = 'hsl(45, 80%, 30%)'
