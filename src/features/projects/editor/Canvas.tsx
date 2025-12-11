@@ -71,6 +71,24 @@ function Canvas({
       setCanvasSize({ width, height })
     }
   }, [width, height])
+
+  // Update canvas display size to match container
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (canvas && container) {
+        const rect = container.getBoundingClientRect()
+        // Set display size to match container
+        canvas.style.width = `${rect.width}px`
+        canvas.style.height = `${rect.height}px`
+      }
+    }
+
+    updateCanvasSize()
+    window.addEventListener('resize', updateCanvasSize)
+    return () => window.removeEventListener('resize', updateCanvasSize)
+  }, [])
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
@@ -944,11 +962,11 @@ function Canvas({
     : 0
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full w-full min-h-0 overflow-hidden">
       {/* Fullscreen canvas container for mobile */}
       <div 
         ref={containerRef}
-        className="relative flex-1 min-h-0 overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md h-full"
+        className="relative flex-1 min-h-0 w-full h-full overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md"
       >
         <canvas
           ref={canvasRef}
@@ -956,7 +974,9 @@ function Canvas({
           height={canvasSize.height}
           className="cursor-crosshair block touch-none w-full h-full"
           style={{ 
-            objectFit: 'contain'
+            display: 'block',
+            width: '100%',
+            height: '100%'
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -1084,7 +1104,7 @@ function Canvas({
       </div>
 
       {/* Desktop toolbar - hidden on mobile */}
-      <div className="hidden sm:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
+      <div className="hidden sm:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4 shrink-0">
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <Button
             variant="outline"

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { InstallationProfile } from '@/services/storage/indexedDB'
+import { LoadingBar } from '@/components/LoadingBar'
 
 function ProjectEditor() {
   const { customerId, projectId } = useParams<{ customerId: string; projectId?: string }>()
@@ -20,6 +21,8 @@ function ProjectEditor() {
   const [perimeter, setPerimeter] = useState(0)
   const [profiles, setProfiles] = useState<InstallationProfile[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false)
+  const [isLoadingProject, setIsLoadingProject] = useState(false)
 
   useEffect(() => {
     if (user?.id) {
@@ -29,6 +32,7 @@ function ProjectEditor() {
 
   useEffect(() => {
     if (projectId && user?.id) {
+      setIsLoadingProject(true)
       projectsService.getById(projectId).then((project) => {
         if (project) {
           setPoints(project.points)
@@ -36,12 +40,15 @@ function ProjectEditor() {
           setPerimeter(project.perimeter)
           setSelectedProfileId(project.profileId || null)
         }
+      }).finally(() => {
+        setIsLoadingProject(false)
       })
     }
   }, [projectId, user?.id])
 
   const loadProfiles = async () => {
     if (!user?.id) return
+    setIsLoadingProfiles(true)
     try {
       const allProfiles = await profileService.getAllProfiles(user.id)
       setProfiles(allProfiles)
@@ -55,6 +62,8 @@ function ProjectEditor() {
       }
     } catch (error: any) {
       console.error('Ошибка загрузки профилей:', error)
+    } finally {
+      setIsLoadingProfiles(false)
     }
   }
 
@@ -112,9 +121,11 @@ function ProjectEditor() {
   }, [customerId, user?.id, points, area, perimeter, selectedProfileId, projectId, updateProject, createProject, navigate])
 
   return (
-    <div className="w-full h-[100dvh] sm:h-full flex flex-col px-2 sm:px-4 md:px-6 pb-2 sm:pb-4 overflow-hidden">
+    <div className="w-full h-[100dvh] sm:h-screen flex flex-col overflow-hidden">
+      <LoadingBar isLoading={isLoadingProfiles || isLoadingProject || isCreating || isUpdating} />
+      
       {/* Compact Header for mobile */}
-      <div className="flex items-center justify-between gap-2 py-2 shrink-0">
+      <div className="flex items-center justify-between gap-2 py-2 px-2 sm:px-4 md:px-6 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Button
             variant="outline"
@@ -130,20 +141,27 @@ function ProjectEditor() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {/* Compact Profile Selection */}
-          {profiles.length > 0 && (
-            <select
-              value={selectedProfileId || ''}
-              onChange={(e) => setSelectedProfileId(e.target.value || null)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs sm:text-sm touch-manipulation max-w-[120px] sm:max-w-[180px]"
-            >
-              <option value="">Профиль...</option>
-              {profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <label className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap hidden sm:block">
+              Профиль:
+            </label>
+            {isLoadingProfiles ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : profiles.length > 0 ? (
+              <select
+                value={selectedProfileId || ''}
+                onChange={(e) => setSelectedProfileId(e.target.value || null)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs sm:text-sm touch-manipulation max-w-[120px] sm:max-w-[180px]"
+              >
+                <option value="">Профиль...</option>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
           <Button
             onClick={handleSave}
             disabled={(isCreating || isUpdating) || points.length < 3}
@@ -157,7 +175,7 @@ function ProjectEditor() {
       </div>
 
       {/* Canvas - takes remaining space */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 w-full">
         <Canvas
           points={points}
           onPointsChange={setPoints}
