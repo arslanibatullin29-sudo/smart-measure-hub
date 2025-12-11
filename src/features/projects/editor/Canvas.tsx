@@ -72,38 +72,23 @@ function Canvas({
     }
   }, [width, height])
 
-  // Update canvas display size to match container while maintaining aspect ratio
+  // Update canvas to fill container completely
   useEffect(() => {
     const updateCanvasSize = () => {
       const canvas = canvasRef.current
       const container = containerRef.current
       if (canvas && container) {
         const rect = container.getBoundingClientRect()
-        const canvasAspect = canvasSize.width / canvasSize.height
-        const containerAspect = rect.width / rect.height
-        
-        let displayWidth: number
-        let displayHeight: number
-        
-        if (containerAspect > canvasAspect) {
-          // Container is wider - fit by height
-          displayHeight = rect.height
-          displayWidth = rect.height * canvasAspect
-        } else {
-          // Container is taller - fit by width
-          displayWidth = rect.width
-          displayHeight = rect.width / canvasAspect
-        }
-        
-        canvas.style.width = `${displayWidth}px`
-        canvas.style.height = `${displayHeight}px`
+        // Fill container completely - no aspect ratio constraints
+        canvas.style.width = `${rect.width}px`
+        canvas.style.height = `${rect.height}px`
       }
     }
 
     updateCanvasSize()
     window.addEventListener('resize', updateCanvasSize)
     return () => window.removeEventListener('resize', updateCanvasSize)
-  }, [canvasSize.width, canvasSize.height])
+  }, [])
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
@@ -222,10 +207,11 @@ function Canvas({
     ctx.stroke()
 
     // Adaptive sizing based on zoom - keep visual size constant on screen
+    // Larger base sizes for better mobile visibility
     const adaptiveScale = 1 / zoom
-    const baseFontSize = 13 * adaptiveScale
-    const basePadding = 8 * adaptiveScale
-    const baseTextHeight = 18 * adaptiveScale
+    const baseFontSize = 18 * adaptiveScale
+    const basePadding = 10 * adaptiveScale
+    const baseTextHeight = 24 * adaptiveScale
     
     for (let i = 0; i < points.length; i++) {
       const next = (i + 1) % points.length
@@ -249,7 +235,7 @@ function Canvas({
       
       ctx.fillStyle = getCSSColor('--background')
       ctx.strokeStyle = getCSSColor('--canvas-line')
-      ctx.lineWidth = 2 * adaptiveScale
+      ctx.lineWidth = 2.5 * adaptiveScale
       ctx.fillRect(
         midX - textWidth / 2 - basePadding, 
         midY - baseTextHeight / 2 - basePadding / 2, 
@@ -271,9 +257,9 @@ function Canvas({
       ctx.restore()
     }
 
-    // Adaptive point sizing based on zoom
-    const basePointRadius = 9 * adaptiveScale
-    const pointNumberFontSize = 11 * adaptiveScale
+    // Adaptive point sizing based on zoom - larger for mobile
+    const basePointRadius = 14 * adaptiveScale
+    const pointNumberFontSize = 14 * adaptiveScale
     
     points.forEach((point, index) => {
       const isHovered = hoveredPoint === index
@@ -353,9 +339,9 @@ function Canvas({
 
     if (showDiagonals && points.length >= 4) {
       const diagonals = getRoomDiagonals(points)
-      const diagFontSize = 12 * adaptiveScale
-      const diagTextHeight = 16 * adaptiveScale
-      const diagPadding = 6 * adaptiveScale
+      const diagFontSize = 16 * adaptiveScale
+      const diagTextHeight = 22 * adaptiveScale
+      const diagPadding = 8 * adaptiveScale
       
       diagonals.forEach((diagonal, index) => {
         const p1 = points[diagonal.start]
