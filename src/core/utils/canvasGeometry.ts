@@ -195,3 +195,85 @@ export function addPointOnWall(
   newPoints.splice(insertIndex, 0, snappedPoint)
   return newPoints
 }
+
+// Проверка пересечения двух отрезков
+function doSegmentsIntersect(
+  a1: Point, a2: Point,
+  b1: Point, b2: Point
+): boolean {
+  // Функция для определения ориентации трёх точек
+  const orientation = (p: Point, q: Point, r: Point): number => {
+    const val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
+    if (Math.abs(val) < 0.001) return 0 // коллинеарны
+    return val > 0 ? 1 : 2 // по часовой или против
+  }
+
+  // Проверка, лежит ли точка q на отрезке pr
+  const onSegment = (p: Point, q: Point, r: Point): boolean => {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
+           q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y)
+  }
+
+  const o1 = orientation(a1, a2, b1)
+  const o2 = orientation(a1, a2, b2)
+  const o3 = orientation(b1, b2, a1)
+  const o4 = orientation(b1, b2, a2)
+
+  // Общий случай
+  if (o1 !== o2 && o3 !== o4) return true
+
+  // Специальные случаи (коллинеарные точки)
+  if (o1 === 0 && onSegment(a1, b1, a2)) return true
+  if (o2 === 0 && onSegment(a1, b2, a2)) return true
+  if (o3 === 0 && onSegment(b1, a1, b2)) return true
+  if (o4 === 0 && onSegment(b1, a2, b2)) return true
+
+  return false
+}
+
+// Проверка, приведёт ли перемещение точки к пересечению стен
+export function wouldCauseIntersection(
+  points: Point[],
+  pointIndex: number,
+  newPosition: Point
+): boolean {
+  if (points.length < 4) return false // Меньше 4 точек - пересечения невозможны
+  
+  const n = points.length
+  const testPoints = [...points]
+  testPoints[pointIndex] = newPosition
+
+  // Проверяем все пары несмежных стен
+  for (let i = 0; i < n; i++) {
+    const iNext = (i + 1) % n
+    
+    for (let j = i + 2; j < n; j++) {
+      const jNext = (j + 1) % n
+      
+      // Пропускаем смежные стены (они всегда имеют общую точку)
+      if (jNext === i) continue
+      
+      const a1 = testPoints[i]
+      const a2 = testPoints[iNext]
+      const b1 = testPoints[j]
+      const b2 = testPoints[jNext]
+      
+      // Проверяем пересечение, игнорируя общие вершины
+      if (a1 === b1 || a1 === b2 || a2 === b1 || a2 === b2) continue
+      
+      // Исключаем касание в вершинах
+      const dist1 = lineLength(a1, b1)
+      const dist2 = lineLength(a1, b2)
+      const dist3 = lineLength(a2, b1)
+      const dist4 = lineLength(a2, b2)
+      
+      if (dist1 < 1 || dist2 < 1 || dist3 < 1 || dist4 < 1) continue
+      
+      if (doSegmentsIntersect(a1, a2, b1, b2)) {
+        return true
+      }
+    }
+  }
+  
+  return false
+}
