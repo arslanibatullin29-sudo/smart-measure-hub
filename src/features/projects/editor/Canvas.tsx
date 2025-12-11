@@ -10,9 +10,10 @@ import {
   distanceToLine
 } from '@/core/utils/canvasGeometry'
 import { Button } from '@/components/ui/button'
-import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2, Plus, Ruler } from 'lucide-react'
+import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
 import { WallLengthInput } from './WallLengthInput'
 import { DiagonalLengthInput } from './DiagonalLengthInput'
+import { WallContextMenu } from './WallContextMenu'
 
 interface Point {
   x: number
@@ -26,7 +27,7 @@ interface CanvasProps {
   onPerimeterChange?: (perimeter: number) => void
   width?: number
   height?: number
-  scale?: number // пикселей на см (1 пиксель = 1 см по умолчанию)
+  scale?: number
 }
 
 function Canvas({ 
@@ -36,48 +37,56 @@ function Canvas({
   onPerimeterChange,
   width,
   height,
-  scale = 1 // 1 пиксель = 1 см (стандартный масштаб для комнат)
+  scale = 1
 }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // Увеличиваем размер canvas для больших помещений (20x15 метров = 2000x1500 пикселей)
   const [canvasSize, setCanvasSize] = useState({ 
     width: width || 2000, 
     height: height || 1500 
   })
-  const [zoom, setZoom] = useState(1) // Уровень зума
-  const [pan, setPan] = useState({ x: 0, y: 0 }) // Смещение для pan
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null)
   const [touchDistance, setTouchDistance] = useState<number | null>(null)
-  const [touchStartPos, setTouchStartPos] = useState<Point | null>(null) // For tap detection on mobile
-  const [touchStartTime, setTouchStartTime] = useState<number>(0) // For tap timing on mobile
+  const [touchStartPos, setTouchStartPos] = useState<Point | null>(null)
+  const [touchStartTime, setTouchStartTime] = useState<number>(0)
   
   // Wall/Diagonal editing states
   const [selectedWall, setSelectedWall] = useState<number | null>(null)
   const [selectedDiagonal, setSelectedDiagonal] = useState<number | null>(null)
   const [showDiagonals, setShowDiagonals] = useState(true)
-  const [editMode, setEditMode] = useState<'point' | 'wall'>('point') // 'point' - добавлять точки, 'wall' - редактировать стены
+  
+  // Context menu for wall
+  const [wallMenuData, setWallMenuData] = useState<{
+    wallIndex: number
+    clickPosition: Point
+    screenPosition: { x: number; y: number }
+  } | null>(null)
 
-  // Адаптивный размер canvas - используем фиксированный большой размер для больших помещений
   useEffect(() => {
-    // Canvas имеет фиксированный размер для работы с большими помещениями
-    // Реальный размер отображается через CSS, а логический размер canvas остается большим
     if (width && height) {
       setCanvasSize({ width, height })
     }
-    // Не обновляем размер при изменении окна - canvas должен быть большим для точности
   }, [width, height])
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
   const [draggedPoint, setDraggedPoint] = useState<number | null>(null)
 
-  // Функция для получения реального значения цвета из CSS переменной
+  // Ограничение координат в пределах canvas
+  const clampToCanvas = useCallback((pos: Point): Point => {
+    return {
+      x: Math.max(0, Math.min(canvasSize.width, pos.x)),
+      y: Math.max(0, Math.min(canvasSize.height, pos.y))
+    }
+  }, [canvasSize.width, canvasSize.height])
+
   const getCSSColor = useCallback((varName: string): string => {
     if (typeof window === 'undefined') return 'hsl(220, 60%, 45%)'
     const root = document.documentElement
     const value = getComputedStyle(root).getPropertyValue(varName).trim()
     if (!value) return 'hsl(220, 60%, 45%)'
-    // Преобразуем "220 60% 45%" в "hsl(220, 60%, 45%)"
     return `hsl(${value})`
   }, [])
 
@@ -88,37 +97,27 @@ function Canvas({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height)
 
-    // Draw grid с шагом 1 см (10 пикселей при scale=1) для видимости
-    // Точная привязка будет к 0.1 см (1 пиксель) при добавлении точек
     ctx.strokeStyle = getCSSColor('--canvas-grid')
     ctx.lineWidth = 0.5
     
-    // Применяем трансформацию для zoom и pan
     ctx.save()
     ctx.translate(pan.x, pan.y)
     ctx.scale(zoom, zoom)
     
-    // Сетка с шагом 10 пикселей (1 см) для видимости
-    const gridSize = 10 // 10 пикселей = 1 см при scale=1
+    const gridSize = 10
     
-    // Вычисляем видимую область с учетом zoom и pan
-    // pan уже в логических координатах canvas
-    // Видимая область в логических координатах: от -pan/zoom до (canvasSize - pan)/zoom
     const visibleStartX = -pan.x / zoom
     const visibleEndX = (canvasSize.width - pan.x) / zoom
     const visibleStartY = -pan.y / zoom
     const visibleEndY = (canvasSize.height - pan.y) / zoom
     
-    // Рисуем сетку на весь canvas, но только видимую часть для производительности
     const startX = Math.max(0, Math.floor(visibleStartX / gridSize) * gridSize)
     const endX = Math.min(canvasSize.width, Math.ceil(visibleEndX / gridSize) * gridSize)
     const startY = Math.max(0, Math.floor(visibleStartY / gridSize) * gridSize)
     const endY = Math.min(canvasSize.height, Math.ceil(visibleEndY / gridSize) * gridSize)
     
-    // Рисуем только видимую часть сетки для производительности
     for (let x = startX; x <= endX; x += gridSize) {
       ctx.beginPath()
       ctx.moveTo(x, 0)
@@ -133,15 +132,14 @@ function Canvas({
       ctx.stroke()
     }
     
-    // Дополнительно рисуем более тонкую сетку с шагом 1 пиксель (0.1 см) при большом зуме
     if (zoom >= 2) {
       ctx.strokeStyle = getCSSColor('--canvas-grid')
       ctx.globalAlpha = 0.3
       ctx.lineWidth = 0.3
-      const fineGridSize = 1 // 1 пиксель = 0.1 см
+      const fineGridSize = 1
       
       for (let x = startX; x <= endX; x += fineGridSize) {
-        if (x % gridSize !== 0) { // Пропускаем линии основной сетки
+        if (x % gridSize !== 0) {
           ctx.beginPath()
           ctx.moveTo(x, 0)
           ctx.lineTo(x, canvasSize.height)
@@ -150,7 +148,7 @@ function Canvas({
       }
       
       for (let y = startY; y <= endY; y += fineGridSize) {
-        if (y % gridSize !== 0) { // Пропускаем линии основной сетки
+        if (y % gridSize !== 0) {
           ctx.beginPath()
           ctx.moveTo(0, y)
           ctx.lineTo(canvasSize.width, y)
@@ -165,7 +163,6 @@ function Canvas({
       return
     }
 
-    // Draw filled polygon
     if (points.length >= 3) {
       ctx.beginPath()
       ctx.moveTo(points[0].x, points[0].y)
@@ -177,7 +174,6 @@ function Canvas({
       ctx.fill()
     }
 
-    // Draw lines (толщина линии должна масштабироваться обратно пропорционально zoom)
     ctx.strokeStyle = getCSSColor('--canvas-line')
     ctx.lineWidth = 2 / zoom
     ctx.beginPath()
@@ -190,7 +186,6 @@ function Canvas({
     }
     ctx.stroke()
 
-    // Draw edge lengths with better visibility
     ctx.font = 'bold 13px Inter, sans-serif'
     
     for (let i = 0; i < points.length; i++) {
@@ -201,16 +196,12 @@ function Canvas({
       const p2 = points[next]
       const midX = (p1.x + p2.x) / 2
       const midY = (p1.y + p2.y) / 2
-      // Длина в пикселях (1 пиксель = 1 см при scale=1)
       const lengthInPixels = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
-      // Конвертируем в метры: пиксели / scale / 100
       const lengthInMeters = lengthInPixels / scale / 100
-      // Форматируем: если меньше 1 метра, показываем в см, иначе в метрах
       const lengthText = lengthInMeters >= 1 
         ? `${lengthInMeters.toFixed(2)} м`
         : `${(lengthInMeters * 100).toFixed(0)} см`
       
-      // Measure text width for better background
       ctx.font = 'bold 13px Inter, sans-serif'
       const textMetrics = ctx.measureText(lengthText)
       const textWidth = textMetrics.width
@@ -219,7 +210,6 @@ function Canvas({
       
       ctx.save()
       
-      // Draw background with border for better visibility
       ctx.fillStyle = getCSSColor('--background')
       ctx.strokeStyle = getCSSColor('--canvas-line')
       ctx.lineWidth = 2 / zoom
@@ -236,7 +226,6 @@ function Canvas({
         textHeight + padding
       )
       
-      // Draw text
       ctx.fillStyle = getCSSColor('--canvas-line')
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
@@ -245,18 +234,15 @@ function Canvas({
       ctx.restore()
     }
 
-    // Draw points with improved visibility
     points.forEach((point, index) => {
       const isHovered = hoveredPoint === index
       const isDragged = draggedPoint === index
-      const pointRadius = isDragged ? 12 : isHovered ? 11 : 9 // Увеличен размер точек
+      const pointRadius = isDragged ? 12 : isHovered ? 11 : 9
       
       ctx.save()
       
-      // Внешнее кольцо для лучшей видимости
       if (isHovered || isDragged) {
         const pointColor = getCSSColor('--canvas-point')
-        // Преобразуем hsl в hsla для прозрачности
         const pointColorWithAlpha = pointColor.replace('hsl(', 'hsla(').replace(')', `, ${isDragged ? 0.2 : 0.15})`)
         ctx.beginPath()
         ctx.arc(point.x, point.y, pointRadius + 4, 0, Math.PI * 2)
@@ -264,17 +250,14 @@ function Canvas({
         ctx.fill()
       }
       
-      // Тень для глубины
       ctx.shadowColor = 'hsla(0, 0%, 0%, 0.3)'
       ctx.shadowBlur = isDragged ? 8 : isHovered ? 6 : 4
       ctx.shadowOffsetX = 0
       ctx.shadowOffsetY = 2
       
-      // Основной круг точки
       ctx.beginPath()
       ctx.arc(point.x, point.y, pointRadius, 0, Math.PI * 2)
       
-      // Градиент для лучшего визуального эффекта
       const gradient = ctx.createRadialGradient(
         point.x - pointRadius * 0.3, 
         point.y - pointRadius * 0.3, 
@@ -303,14 +286,12 @@ function Canvas({
       
       ctx.fill()
       
-      // Белая обводка для контраста
       ctx.strokeStyle = getCSSColor('--background')
       ctx.lineWidth = isDragged ? 3 : isHovered ? 2.5 : 2
       ctx.stroke()
       
       ctx.restore()
 
-      // Номер точки с улучшенной видимостью
       ctx.save()
       ctx.font = isDragged || isHovered 
         ? 'bold 12px Inter, sans-serif' 
@@ -318,7 +299,6 @@ function Canvas({
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       
-      // Тень для текста
       ctx.shadowColor = 'hsla(0, 0%, 0%, 0.5)'
       ctx.shadowBlur = 2
       ctx.shadowOffsetX = 0
@@ -329,7 +309,6 @@ function Canvas({
       ctx.restore()
     })
 
-    // Draw diagonals if enabled and 4+ points
     if (showDiagonals && points.length >= 4) {
       const diagonals = getRoomDiagonals(points)
       
@@ -337,7 +316,6 @@ function Canvas({
         const p1 = points[diagonal.start]
         const p2 = points[diagonal.end]
         
-        // Draw diagonal line
         ctx.beginPath()
         ctx.setLineDash([8, 4])
         ctx.strokeStyle = selectedDiagonal === index ? 'hsl(45, 90%, 50%)' : 'hsla(45, 80%, 50%, 0.6)'
@@ -347,7 +325,6 @@ function Canvas({
         ctx.stroke()
         ctx.setLineDash([])
         
-        // Draw diagonal length label
         const midX = (p1.x + p2.x) / 2
         const midY = (p1.y + p2.y) / 2
         const lengthInPixels = lineLength(p1, p2)
@@ -385,7 +362,7 @@ function Canvas({
       })
     }
     
-    ctx.restore() // Восстанавливаем трансформацию
+    ctx.restore()
   }, [points, canvasSize.width, canvasSize.height, scale, hoveredPoint, draggedPoint, zoom, pan, getCSSColor, showDiagonals, selectedDiagonal])
 
   useEffect(() => {
@@ -394,23 +371,10 @@ function Canvas({
 
   useEffect(() => {
     if (points.length >= 3) {
-      // Конвертируем координаты из пикселей в метры
-      // scale: пикселей на см (по умолчанию 1 пиксель = 1 см)
-      // Формула Shoelace возвращает площадь в квадратных пикселях
-      // 1 пиксель = 1 см (при scale=1), значит 1 пиксель² = 1 см²
-      // 1 см² = 0.0001 м², значит площадь в м² = площадь в пикселях² / 10000
       const areaInPixels = calculateArea(points)
       const perimeterInPixels = calculatePerimeter(points)
       
-      // Конвертация в метры
-      // Площадь: пиксели² → см² → м²
-      // При scale=1: 1 пиксель = 1 см, значит 1 пиксель² = 1 см² = 0.0001 м²
-      // Площадь в м² = площадь в пикселях² / (scale²) / 10000
       const areaInSquareMeters = areaInPixels / (scale * scale) / 10000
-      
-      // Периметр: пиксели → см → м
-      // При scale=1: 1 пиксель = 1 см = 0.01 м
-      // Периметр в м = периметр в пикселях / scale / 100
       const perimeterInMeters = perimeterInPixels / scale / 100
       
       onAreaChange?.(areaInSquareMeters)
@@ -426,26 +390,21 @@ function Canvas({
     const clientX = 'touches' in e ? e.touches[0]?.clientX || 0 : e.clientX
     const clientY = 'touches' in e ? e.touches[0]?.clientY || 0 : e.clientY
     
-    // Масштаб между логическим размером canvas и отображаемым размером
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
     
-    // Координаты относительно видимого canvas
     const viewX = clientX - rect.left
     const viewY = clientY - rect.top
     
-    // Конвертируем в логические координаты canvas с учетом CSS масштабирования
     const logicalX = viewX * scaleX
     const logicalY = viewY * scaleY
     
-    // Применяем обратную трансформацию zoom и pan
-    // pan уже в логических координатах canvas
     const x = (logicalX - pan.x) / zoom
     const y = (logicalY - pan.y) / zoom
     
     return { x, y }
   }
-  
+
   const getTouchDistance = (touch1: React.Touch, touch2: React.Touch): number => {
     const dx = touch2.clientX - touch1.clientX
     const dy = touch2.clientY - touch1.clientY
@@ -469,9 +428,8 @@ function Canvas({
   }
 
   const findPointAtPosition = (pos: Point): number | null => {
-    // Адаптивный порог с учетом zoom - при большом зуме нужен больший порог в реальных координатах
-    const baseThreshold = 20 / zoom // Базовый порог в пикселях, адаптированный к zoom
-    const threshold = Math.max(baseThreshold, 15) // Минимум 15 пикселей для удобства
+    const baseThreshold = 20 / zoom
+    const threshold = Math.max(baseThreshold, 15)
     for (let i = 0; i < points.length; i++) {
       const dx = points[i].x - pos.x
       const dy = points[i].y - pos.y
@@ -482,28 +440,45 @@ function Canvas({
     return null
   }
 
+  const getScreenPosition = (canvasPos: Point): { x: number; y: number } => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+    
+    const canvasRect = canvas.getBoundingClientRect()
+    
+    const scaleX = canvasRect.width / canvas.width
+    const scaleY = canvasRect.height / canvas.height
+    
+    const screenX = (canvasPos.x * zoom + pan.x) * scaleX
+    const screenY = (canvasPos.y * zoom + pan.y) * scaleY
+    
+    return { x: screenX, y: screenY }
+  }
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    // Проверяем, не нажата ли средняя кнопка мыши или пробел для pan
+    // Close context menu if open
+    if (wallMenuData) {
+      setWallMenuData(null)
+      return
+    }
+    
     if (e.button === 1 || e.ctrlKey || e.metaKey) {
       setIsPanning(true)
-      // Сохраняем координаты в экранных координатах для расчета дельты
       setLastPanPoint({ x: e.clientX, y: e.clientY })
       return
     }
     
     const pos = getCanvasCoords(e)
     
-    // Привязка к сетке с шагом 0.1 см (1 пиксель) для точности
     const snapToGrid = (value: number) => Math.round(value)
-    const snappedPos = {
+    const snappedPos = clampToCanvas({
       x: snapToGrid(pos.x),
       y: snapToGrid(pos.y)
-    }
+    })
     
     const pointIndex = findPointAtPosition(snappedPos)
 
     if (pointIndex !== null) {
-      // Двойной клик для удаления точки
       if (e.detail === 2) {
         const newPoints = points.filter((_, index) => index !== pointIndex)
         onPointsChange(newPoints)
@@ -515,72 +490,91 @@ function Canvas({
       return
     }
     
-    // В режиме редактирования стен - проверяем клик на стену или диагональ
-    if (editMode === 'wall' && points.length >= 2) {
-      // Проверяем клик на диагональ (приоритет)
-      if (showDiagonals && points.length >= 4) {
-        const diagonals = getRoomDiagonals(points)
-        const threshold = 20 / zoom
-        
-        for (let i = 0; i < diagonals.length; i++) {
-          const d = diagonals[i]
-          const dist = distanceToLine(snappedPos, points[d.start], points[d.end])
-          if (dist < threshold) {
-            setSelectedDiagonal(i)
-            setSelectedWall(null)
-            return
-          }
+    // Check click on diagonal
+    if (showDiagonals && points.length >= 4) {
+      const diagonals = getRoomDiagonals(points)
+      const threshold = 20 / zoom
+      
+      for (let i = 0; i < diagonals.length; i++) {
+        const d = diagonals[i]
+        const dist = distanceToLine(snappedPos, points[d.start], points[d.end])
+        if (dist < threshold) {
+          setSelectedDiagonal(i)
+          setSelectedWall(null)
+          return
         }
       }
-      
-      // Проверяем клик на стену
+    }
+    
+    // Check click on wall - show context menu
+    if (points.length >= 2) {
       const wallIndex = findNearestWallIndex(snappedPos, points, 20 / zoom)
       if (wallIndex !== null) {
-        // Shift+клик - добавить точку на стену
-        if (e.shiftKey) {
-          const newPoints = addPointOnWall(points, wallIndex, snappedPos)
-          onPointsChange(newPoints)
-          if (navigator.vibrate) navigator.vibrate(10)
-        } else {
-          setSelectedWall(wallIndex)
-          setSelectedDiagonal(null)
-        }
+        const nextIndex = (wallIndex + 1) % points.length
+        const p1 = points[wallIndex]
+        const p2 = points[nextIndex]
+        const midPoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+        
+        setWallMenuData({
+          wallIndex,
+          clickPosition: snappedPos,
+          screenPosition: getScreenPosition(midPoint)
+        })
         return
       }
     }
     
-    // По умолчанию - добавляем точку
+    // Add new point
     setSelectedWall(null)
     setSelectedDiagonal(null)
     onPointsChange([...points, snappedPos])
+  }
+
+  const handleWallMenuSetSize = () => {
+    if (wallMenuData) {
+      setSelectedWall(wallMenuData.wallIndex)
+      setWallMenuData(null)
+    }
+  }
+
+  const handleWallMenuAddPoint = () => {
+    if (wallMenuData) {
+      const newPoints = addPointOnWall(points, wallMenuData.wallIndex, wallMenuData.clickPosition)
+      onPointsChange(newPoints)
+      if (navigator.vibrate) navigator.vibrate(10)
+      setWallMenuData(null)
+    }
   }
   
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault()
     e.stopPropagation()
     
+    // Close context menu on any touch
+    if (wallMenuData) {
+      setWallMenuData(null)
+      return
+    }
+    
     if (e.touches.length === 2) {
-      // Два пальца - начало pinch-to-zoom
       const distance = getTouchDistance(e.touches[0], e.touches[1])
       setTouchDistance(distance)
       const center = getTouchCenter(e.touches[0], e.touches[1])
       setLastPanPoint(center)
-      setTouchStartPos(null) // Cancel tap detection
+      setTouchStartPos(null)
       setTouchStartTime(0)
     } else if (e.touches.length === 1) {
       const pos = getCanvasCoords(e)
       const pointIndex = findPointAtPosition(pos)
       const touch = e.touches[0]
       
-      // Save touch start position and time for tap detection
       setTouchStartPos({ x: touch.clientX, y: touch.clientY })
       setTouchStartTime(Date.now())
       
       if (pointIndex !== null) {
         setDraggedPoint(pointIndex)
-        setTouchStartPos(null) // Cancel tap when dragging point
+        setTouchStartPos(null)
       } else {
-        // Prepare for potential pan (will start if finger moves)
         setLastPanPoint({ x: touch.clientX, y: touch.clientY })
       }
     }
@@ -599,7 +593,6 @@ function Canvas({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (isPanning && lastPanPoint) {
-      // Pan в логических координатах canvas
       const canvas = canvasRef.current
       if (canvas) {
         const rect = canvas.getBoundingClientRect()
@@ -623,19 +616,18 @@ function Canvas({
     const pos = getCanvasCoords(e)
 
     if (draggedPoint !== null) {
-      // Привязка к сетке при перетаскивании
       const snapToGrid = (value: number) => Math.round(value)
-      const snappedPos = {
+      // Ограничиваем точку в пределах canvas
+      const snappedPos = clampToCanvas({
         x: snapToGrid(pos.x),
         y: snapToGrid(pos.y)
-      }
+      })
       const newPoints = [...points]
       newPoints[draggedPoint] = snappedPos
       onPointsChange(newPoints)
     } else {
       const foundPoint = findPointAtPosition(pos)
       setHoveredPoint(foundPoint)
-      // Изменяем курсор при наведении на точку
       if (canvasRef.current) {
         canvasRef.current.style.cursor = foundPoint !== null ? 'grab' : 'crosshair'
       }
@@ -646,7 +638,6 @@ function Canvas({
     e.preventDefault()
     
     if (e.touches.length === 2 && touchDistance !== null && lastPanPoint) {
-      // Pinch-to-zoom
       const newDistance = getTouchDistance(e.touches[0], e.touches[1])
       const scaleChange = newDistance / touchDistance
       const newZoom = Math.max(0.1, Math.min(5, zoom * scaleChange))
@@ -665,19 +656,17 @@ function Canvas({
     } else if (e.touches.length === 1 && lastPanPoint) {
       const touch = e.touches[0]
       
-      // Check if finger moved enough to start panning (threshold 10px)
       if (touchStartPos) {
         const dx = touch.clientX - touchStartPos.x
         const dy = touch.clientY - touchStartPos.y
         const moved = Math.sqrt(dx * dx + dy * dy)
         if (moved > 10) {
           setIsPanning(true)
-          setTouchStartPos(null) // Cancel tap - this is a pan/drag
+          setTouchStartPos(null)
         }
       }
       
       if (isPanning) {
-        // Pan одним пальцем в логических координатах
         const canvas = canvasRef.current
         if (canvas) {
           const rect = canvas.getBoundingClientRect()
@@ -697,13 +686,13 @@ function Canvas({
         setLastPanPoint({ x: touch.clientX, y: touch.clientY })
       }
     } else if (e.touches.length === 1 && draggedPoint !== null) {
-      // Перемещение точки с привязкой к сетке
       const pos = getCanvasCoords(e)
       const snapToGrid = (value: number) => Math.round(value)
-      const snappedPos = {
+      // Ограничиваем точку в пределах canvas
+      const snappedPos = clampToCanvas({
         x: snapToGrid(pos.x),
         y: snapToGrid(pos.y)
-      }
+      })
       const newPoints = [...points]
       newPoints[draggedPoint] = snappedPos
       onPointsChange(newPoints)
@@ -727,11 +716,9 @@ function Canvas({
     
     if (e.touches.length === 0) {
       const tapDuration = Date.now() - touchStartTime
-      const isTap = tapDuration < 300 // Tap should be less than 300ms
+      const isTap = tapDuration < 300
       
-      // If touchStartPos is set, we weren't panning/dragging, and it was a quick tap - add point
       if (touchStartPos && !isPanning && draggedPoint === null && isTap) {
-        // Get canvas coordinates from the last touch position
         const canvas = canvasRef.current
         if (canvas) {
           const rect = canvas.getBoundingClientRect()
@@ -746,18 +733,34 @@ function Canvas({
           const x = (logicalX - pan.x) / zoom
           const y = (logicalY - pan.y) / zoom
           
-          // Snap to grid
-          const snappedPos = {
+          const snappedPos = clampToCanvas({
             x: Math.round(x),
             y: Math.round(y)
-          }
+          })
           
-          // Only add if not clicking on existing point and within canvas bounds
           if (snappedPos.x >= 0 && snappedPos.y >= 0 && 
               snappedPos.x <= canvasSize.width && snappedPos.y <= canvasSize.height) {
+            
+            // Check if tapped on wall - show context menu
+            if (points.length >= 2) {
+              const wallIndex = findNearestWallIndex(snappedPos, points, 30)
+              if (wallIndex !== null) {
+                const nextIndex = (wallIndex + 1) % points.length
+                const p1 = points[wallIndex]
+                const p2 = points[nextIndex]
+                const midPoint = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+                
+                setWallMenuData({
+                  wallIndex,
+                  clickPosition: snappedPos,
+                  screenPosition: getScreenPosition(midPoint)
+                })
+                return
+              }
+            }
+            
             const existingPoint = findPointAtPosition(snappedPos)
             if (existingPoint === null) {
-              // Haptic feedback for mobile
               if (navigator.vibrate) {
                 navigator.vibrate(10)
               }
@@ -776,7 +779,6 @@ function Canvas({
         setDraggedPoint(null)
       }
     } else if (e.touches.length === 1) {
-      // Переключаемся на pan одним пальцем
       setIsPanning(true)
       const touch = e.touches[0]
       setLastPanPoint({ x: touch.clientX, y: touch.clientY })
@@ -837,9 +839,9 @@ function Canvas({
     onPointsChange([])
     setSelectedWall(null)
     setSelectedDiagonal(null)
+    setWallMenuData(null)
   }
 
-  // Обработка изменения длины стены
   const handleWallLengthChange = (newLengthMeters: number) => {
     if (selectedWall === null) return
     const newPoints = resizeWall(points, selectedWall, newLengthMeters, scale)
@@ -848,7 +850,6 @@ function Canvas({
     if (navigator.vibrate) navigator.vibrate(10)
   }
 
-  // Обработка изменения длины диагонали
   const handleDiagonalLengthChange = (newLengthMeters: number, diagonalIndex: number) => {
     const newPoints = resizeDiagonal(points, diagonalIndex, newLengthMeters, scale)
     onPointsChange(newPoints)
@@ -856,26 +857,6 @@ function Canvas({
     if (navigator.vibrate) navigator.vibrate(10)
   }
 
-  // Получить позицию для input на экране
-  const getScreenPosition = (canvasPos: Point): { x: number; y: number } => {
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container) return { x: 0, y: 0 }
-    
-    const canvasRect = canvas.getBoundingClientRect()
-    
-    // Масштаб между логическим размером canvas и отображаемым
-    const scaleX = canvasRect.width / canvas.width
-    const scaleY = canvasRect.height / canvas.height
-    
-    // Применяем zoom и pan для получения позиции на экране
-    const screenX = (canvasPos.x * zoom + pan.x) * scaleX
-    const screenY = (canvasPos.y * zoom + pan.y) * scaleY
-    
-    return { x: screenX, y: screenY }
-  }
-
-  // Получить данные выбранной стены
   const getSelectedWallData = () => {
     if (selectedWall === null || points.length < 2) return null
     const nextIndex = (selectedWall + 1) % points.length
@@ -887,7 +868,6 @@ function Canvas({
     return { lengthMeters, position: getScreenPosition(midPoint) }
   }
 
-  // Получить данные выбранной диагонали
   const getSelectedDiagonalData = () => {
     if (selectedDiagonal === null || points.length < 4) return null
     const diagonals = getRoomDiagonals(points)
@@ -904,7 +884,6 @@ function Canvas({
   const wallData = getSelectedWallData()
   const diagonalData = getSelectedDiagonalData()
 
-  // Вычисляем площадь и периметр с учетом масштаба для отображения
   const area = points.length >= 3 
     ? calculateArea(points) / (scale * scale) / 10000 
     : 0
@@ -913,133 +892,20 @@ function Canvas({
     : 0
 
   return (
-    <div className="flex flex-col gap-2 sm:gap-4">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleUndo}
-            disabled={points.length === 0}
-            className="h-10 sm:h-9 px-3 sm:px-2 touch-manipulation"
-          >
-            <Undo2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden sm:inline ml-1.5">Отменить</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClear}
-            disabled={points.length === 0}
-            className="h-10 sm:h-9 px-3 sm:px-2 touch-manipulation"
-          >
-            <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden sm:inline ml-1.5">Очистить</span>
-          </Button>
-          
-          {/* Zoom controls */}
-          <div className="flex items-center gap-0.5 sm:gap-1 border rounded-md p-0.5 sm:p-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleZoomOut}
-              className="h-10 w-10 sm:h-8 sm:w-8 p-0 touch-manipulation"
-              title="Уменьшить"
-            >
-              <ZoomOut className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-            </Button>
-            <div className="px-1.5 sm:px-2 text-xs font-mono min-w-[2.5rem] sm:min-w-[3rem] text-center">
-              {Math.round(zoom * 100)}%
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleZoomIn}
-              className="h-10 w-10 sm:h-8 sm:w-8 p-0 touch-manipulation"
-              title="Увеличить"
-            >
-              <ZoomIn className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleResetZoom}
-              className="h-10 w-10 sm:h-8 sm:w-8 p-0 touch-manipulation"
-              title="Сбросить масштаб"
-            >
-              <Maximize2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-            </Button>
-          </div>
-          
-          {/* Mode controls */}
-          <div className="flex items-center gap-0.5 sm:gap-1 border rounded-md p-0.5 sm:p-1">
-            <Button
-              variant={editMode === 'point' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => { setEditMode('point'); setSelectedWall(null); setSelectedDiagonal(null); }}
-              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
-              title="Добавить точки"
-            >
-              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline ml-1">Точки</span>
-            </Button>
-            <Button
-              variant={editMode === 'wall' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setEditMode('wall')}
-              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
-              title="Редактировать стены"
-              disabled={points.length < 2}
-            >
-              <Ruler className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline ml-1">Стены</span>
-            </Button>
-          </div>
-          
-          {/* Diagonal toggle */}
-          {points.length >= 4 && (
-            <Button
-              variant={showDiagonals ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setShowDiagonals(!showDiagonals)}
-              className="h-10 sm:h-8 px-2 sm:px-3 touch-manipulation"
-              title="Показать диагонали"
-            >
-              <span className="text-xs sm:text-sm">⟍</span>
-              <span className="hidden sm:inline ml-1">Диагонали</span>
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm flex-wrap">
-          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-muted rounded-lg">
-            <span className="text-muted-foreground text-xs sm:text-sm">Площадь:</span>
-            <span className="font-mono font-semibold text-xs sm:text-sm">{area.toFixed(2)} м²</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 bg-muted rounded-lg">
-            <span className="text-muted-foreground text-xs sm:text-sm">Периметр:</span>
-            <span className="font-mono font-semibold text-xs sm:text-sm">{perimeter.toFixed(2)} м.п.</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Canvas */}
+    <div className="flex flex-col h-full">
+      {/* Fullscreen canvas container for mobile */}
       <div 
         ref={containerRef}
-        className="relative rounded-lg sm:rounded-xl overflow-hidden border border-border shadow-md bg-[hsl(var(--canvas-bg))] w-full"
-        style={{ maxHeight: '60vh', minHeight: '300px' }}
+        className="relative flex-1 overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md"
+        style={{ minHeight: '50vh' }}
       >
         <canvas
           ref={canvasRef}
           width={canvasSize.width}
           height={canvasSize.height}
-          className="cursor-crosshair block touch-none"
+          className="cursor-crosshair block touch-none w-full h-full"
           style={{ 
-            width: '100%', 
-            height: 'auto',
-            maxWidth: '100%',
-            display: 'block'
+            objectFit: 'contain'
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -1051,6 +917,78 @@ function Canvas({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         />
+        
+        {/* Overlay toolbar for mobile - top left */}
+        <div className="absolute top-2 left-2 flex gap-1 sm:hidden">
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={handleUndo}
+            disabled={points.length === 0}
+            className="h-10 w-10 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+          >
+            <Undo2 className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={handleClear}
+            disabled={points.length === 0}
+            className="h-10 w-10 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+        
+        {/* Overlay zoom controls for mobile - top right */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 sm:hidden">
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={handleZoomIn}
+            className="h-10 w-10 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={handleZoomOut}
+            className="h-10 w-10 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={handleResetZoom}
+            className="h-10 w-10 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </Button>
+        </div>
+        
+        {/* Overlay stats for mobile - bottom */}
+        <div className="absolute bottom-2 left-2 right-2 flex justify-center gap-2 sm:hidden">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-background/90 backdrop-blur-sm rounded-lg shadow-md">
+            <span className="text-muted-foreground text-xs">S:</span>
+            <span className="font-mono font-semibold text-sm">{area.toFixed(2)} м²</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-background/90 backdrop-blur-sm rounded-lg shadow-md">
+            <span className="text-muted-foreground text-xs">P:</span>
+            <span className="font-mono font-semibold text-sm">{perimeter.toFixed(2)} м</span>
+          </div>
+          {points.length >= 4 && (
+            <Button
+              variant={showDiagonals ? 'default' : 'secondary'}
+              size="sm"
+              onClick={() => setShowDiagonals(!showDiagonals)}
+              className="h-9 px-3 bg-background/90 backdrop-blur-sm shadow-md touch-manipulation"
+            >
+              <span className="text-sm">⟍</span>
+            </Button>
+          )}
+        </div>
         
         {/* Wall length input */}
         {wallData && (
@@ -1073,33 +1011,122 @@ function Canvas({
           />
         )}
         
+        {/* Wall context menu */}
+        {wallMenuData && (
+          <WallContextMenu
+            position={wallMenuData.screenPosition}
+            onSetSize={handleWallMenuSetSize}
+            onAddPoint={handleWallMenuAddPoint}
+            onClose={() => setWallMenuData(null)}
+          />
+        )}
+        
         {/* Hint overlay */}
         {points.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="flex flex-col items-center gap-2 text-muted-foreground animate-fade-in">
               <MousePointer className="w-8 h-8" />
-              <p className="text-sm">Кликните для добавления точек плана</p>
+              <p className="text-sm text-center px-4">Кликните для добавления точек плана</p>
             </div>
           </div>
         )}
       </div>
 
+      {/* Desktop toolbar - hidden on mobile */}
+      <div className="hidden sm:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUndo}
+            disabled={points.length === 0}
+            className="h-9 px-2"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span className="ml-1.5">Отменить</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClear}
+            disabled={points.length === 0}
+            className="h-9 px-2"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="ml-1.5">Очистить</span>
+          </Button>
+          
+          {/* Zoom controls */}
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomOut}
+              className="h-8 w-8 p-0"
+              title="Уменьшить"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </Button>
+            <div className="px-2 text-xs font-mono min-w-[3rem] text-center">
+              {Math.round(zoom * 100)}%
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleZoomIn}
+              className="h-8 w-8 p-0"
+              title="Увеличить"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetZoom}
+              className="h-8 w-8 p-0"
+              title="Сбросить масштаб"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          
+          {/* Diagonal toggle */}
+          {points.length >= 4 && (
+            <Button
+              variant={showDiagonals ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setShowDiagonals(!showDiagonals)}
+              className="h-8 px-3"
+              title="Показать диагонали"
+            >
+              <span className="text-sm">⟍</span>
+              <span className="ml-1">Диагонали</span>
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 text-sm flex-wrap">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
+            <span className="text-muted-foreground">Площадь:</span>
+            <span className="font-mono font-semibold">{area.toFixed(2)} м²</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
+            <span className="text-muted-foreground">Периметр:</span>
+            <span className="font-mono font-semibold">{perimeter.toFixed(2)} м.п.</span>
+          </div>
+        </div>
+      </div>
+
       {/* Points info */}
       {points.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
-          <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success flex-shrink-0" />
+        <div className="hidden sm:flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-2">
+          <Check className="w-4 h-4 text-success flex-shrink-0" />
           <span>Точек: {points.length}</span>
           {points.length >= 3 && (
             <span className="text-success">• Замкнут</span>
           )}
-          <span className="text-xs opacity-70 hidden sm:inline">
-            • Режим "Стены": клик на стену для изменения длины
-          </span>
-          <span className="text-xs opacity-70 hidden sm:inline">
-            • Shift+клик: добавить точку на стену
-          </span>
-          <span className="text-xs opacity-70 sm:hidden">
-            • Режим "Стены" для редактирования длин
+          <span className="text-xs opacity-70">
+            • Клик на стену: меню действий
           </span>
         </div>
       )}
