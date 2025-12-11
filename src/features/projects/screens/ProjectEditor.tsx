@@ -112,7 +112,7 @@ function ProjectEditor() {
   }, [customerId, user?.id, points, area, perimeter, selectedProfileId, projectId, updateProject, createProject, navigate])
 
   return (
-    <div className="w-full h-full flex flex-col px-2 sm:px-4 md:px-6 pb-4">
+    <div className="w-full h-[100dvh] sm:h-full flex flex-col px-2 sm:px-4 md:px-6 pb-2 sm:pb-4 overflow-hidden">
       {/* Compact Header for mobile */}
       <div className="flex items-center justify-between gap-2 py-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
