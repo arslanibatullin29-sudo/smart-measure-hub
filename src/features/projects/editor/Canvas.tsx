@@ -944,12 +944,11 @@ function Canvas({
     : 0
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Fullscreen canvas container for mobile */}
       <div 
         ref={containerRef}
-        className="relative flex-1 overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md"
-        style={{ minHeight: 'calc(100vh - 120px)' }}
+        className="relative flex-1 min-h-0 overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md h-full"
       >
         <canvas
           ref={canvasRef}
