@@ -15,6 +15,7 @@ import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2 } from '
 import { WallLengthInput } from './WallLengthInput'
 import { DiagonalLengthInput } from './DiagonalLengthInput'
 import { WallContextMenu } from './WallContextMenu'
+import { toast } from 'sonner'
 
 interface Point {
   x: number
@@ -525,10 +526,16 @@ function Canvas({
       }
     }
     
-    // Add new point
+    // Add new point - check for intersection
     setSelectedWall(null)
     setSelectedDiagonal(null)
-    onPointsChange([...points, snappedPos])
+    
+    const newPoints = [...points, snappedPos]
+    if (!wouldCauseIntersection(newPoints, points.length, snappedPos)) {
+      onPointsChange(newPoints)
+    } else {
+      toast.error('Нельзя добавить точку: стены будут пересекаться')
+    }
   }
 
   const handleWallMenuSetSize = () => {
@@ -754,6 +761,29 @@ function Canvas({
           if (snappedPos.x >= 0 && snappedPos.y >= 0 && 
               snappedPos.x <= canvasSize.width && snappedPos.y <= canvasSize.height) {
             
+            // Check if tapped on existing point
+            const existingPoint = findPointAtPosition(snappedPos)
+            if (existingPoint !== null) {
+              return // Don't add point if tapped on existing one
+            }
+            
+            // Check if tapped on diagonal - show diagonal input
+            if (showDiagonals && points.length >= 4) {
+              const diagonals = getRoomDiagonals(points)
+              const threshold = 35 // Larger threshold for touch
+              
+              for (let i = 0; i < diagonals.length; i++) {
+                const d = diagonals[i]
+                const dist = distanceToLine(snappedPos, points[d.start], points[d.end])
+                if (dist < threshold) {
+                  setSelectedDiagonal(i)
+                  setSelectedWall(null)
+                  if (navigator.vibrate) navigator.vibrate(10)
+                  return
+                }
+              }
+            }
+            
             // Check if tapped on wall - show context menu
             if (points.length >= 2) {
               const wallIndex = findNearestWallIndex(snappedPos, points, 30)
@@ -772,12 +802,15 @@ function Canvas({
               }
             }
             
-            const existingPoint = findPointAtPosition(snappedPos)
-            if (existingPoint === null) {
+            // Add new point - check for intersection
+            if (!wouldCauseIntersection([...points, snappedPos], points.length, snappedPos)) {
               if (navigator.vibrate) {
                 navigator.vibrate(10)
               }
               onPointsChange([...points, snappedPos])
+            } else {
+              if (navigator.vibrate) navigator.vibrate([50, 50, 50])
+              toast.error('Нельзя добавить точку: стены будут пересекаться')
             }
           }
         }
