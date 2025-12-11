@@ -32,6 +32,10 @@ interface CanvasProps {
   scale?: number
 }
 
+// Logical world size - large enough for rooms up to 100m (100m = 10000cm = 10000px at scale=1)
+// Using 30000x30000 to allow for very large spaces with margins
+const WORLD_SIZE = 30000
+
 function Canvas({ 
   points, 
   onPointsChange, 
@@ -42,11 +46,12 @@ function Canvas({
   scale = 1
 }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // Display canvas size (matches container for sharp rendering)
   const [canvasSize, setCanvasSize] = useState({ 
-    width: width || 2000, 
-    height: height || 1500 
+    width: width || 800, 
+    height: height || 600 
   })
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(0.5) // Start at reasonable zoom level
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [lastPanPoint, setLastPanPoint] = useState<Point | null>(null)
@@ -65,12 +70,6 @@ function Canvas({
     clickPosition: Point
     screenPosition: { x: number; y: number }
   } | null>(null)
-
-  useEffect(() => {
-    if (width && height) {
-      setCanvasSize({ width, height })
-    }
-  }, [width, height])
 
   // Update canvas internal size to match container - prevents stretching
   useEffect(() => {
@@ -99,18 +98,29 @@ function Canvas({
     window.addEventListener('resize', updateCanvasSize)
     return () => window.removeEventListener('resize', updateCanvasSize)
   }, [])
+
+  // Set initial view when canvas size is determined
+  useEffect(() => {
+    if (canvasSize.width > 100 && canvasSize.height > 100 && points.length === 0) {
+      // Start with a view showing ~10m x 10m area (1000px x 1000px at scale=1)
+      const targetAreaSize = 1000
+      const zoomToFit = Math.min(canvasSize.width, canvasSize.height) / targetAreaSize
+      setZoom(Math.max(0.3, Math.min(zoomToFit, 1)))
+      setPan({ x: 50, y: 50 })
+    }
+  }, [canvasSize.width, canvasSize.height])
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
   const [draggedPoint, setDraggedPoint] = useState<number | null>(null)
 
-  // Ограничение координат в пределах canvas
+  // Clamp to logical world coordinates (not canvas display size)
   const clampToCanvas = useCallback((pos: Point): Point => {
     return {
-      x: Math.max(0, Math.min(canvasSize.width, pos.x)),
-      y: Math.max(0, Math.min(canvasSize.height, pos.y))
+      x: Math.max(0, Math.min(WORLD_SIZE, pos.x)),
+      y: Math.max(0, Math.min(WORLD_SIZE, pos.y))
     }
-  }, [canvasSize.width, canvasSize.height])
+  }, [])
 
   const getCSSColor = useCallback((varName: string): string => {
     if (typeof window === 'undefined') return 'hsl(220, 60%, 45%)'
@@ -136,57 +146,66 @@ function Canvas({
     ctx.translate(pan.x, pan.y)
     ctx.scale(zoom, zoom)
     
-    const gridSize = 10
+    // Grid size: 10px = 10cm at scale=1, larger grid at 100px intervals
+    const gridSize = 100 // 1 meter grid
+    const fineGridSize = 10 // 10cm fine grid
     
+    // Calculate visible area in world coordinates
     const visibleStartX = -pan.x / zoom
     const visibleEndX = (canvasSize.width - pan.x) / zoom
     const visibleStartY = -pan.y / zoom
     const visibleEndY = (canvasSize.height - pan.y) / zoom
     
+    // Draw fine grid (10cm)
+    ctx.globalAlpha = 0.3
+    ctx.lineWidth = 0.5 / zoom
+    const fineStartX = Math.max(0, Math.floor(visibleStartX / fineGridSize) * fineGridSize)
+    const fineEndX = Math.min(WORLD_SIZE, Math.ceil(visibleEndX / fineGridSize) * fineGridSize)
+    const fineStartY = Math.max(0, Math.floor(visibleStartY / fineGridSize) * fineGridSize)
+    const fineEndY = Math.min(WORLD_SIZE, Math.ceil(visibleEndY / fineGridSize) * fineGridSize)
+    
+    for (let x = fineStartX; x <= fineEndX; x += fineGridSize) {
+      if (x % gridSize !== 0) { // Skip lines that will be drawn as main grid
+        ctx.beginPath()
+        ctx.moveTo(x, Math.max(0, visibleStartY))
+        ctx.lineTo(x, Math.min(WORLD_SIZE, visibleEndY))
+        ctx.stroke()
+      }
+    }
+    
+    for (let y = fineStartY; y <= fineEndY; y += fineGridSize) {
+      if (y % gridSize !== 0) {
+        ctx.beginPath()
+        ctx.moveTo(Math.max(0, visibleStartX), y)
+        ctx.lineTo(Math.min(WORLD_SIZE, visibleEndX), y)
+        ctx.stroke()
+      }
+    }
+    
+    // Draw main grid (1 meter)
+    ctx.globalAlpha = 0.6
+    ctx.lineWidth = 1 / zoom
     const startX = Math.max(0, Math.floor(visibleStartX / gridSize) * gridSize)
-    const endX = Math.min(canvasSize.width, Math.ceil(visibleEndX / gridSize) * gridSize)
+    const endX = Math.min(WORLD_SIZE, Math.ceil(visibleEndX / gridSize) * gridSize)
     const startY = Math.max(0, Math.floor(visibleStartY / gridSize) * gridSize)
-    const endY = Math.min(canvasSize.height, Math.ceil(visibleEndY / gridSize) * gridSize)
+    const endY = Math.min(WORLD_SIZE, Math.ceil(visibleEndY / gridSize) * gridSize)
     
     for (let x = startX; x <= endX; x += gridSize) {
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, canvasSize.height)
+      ctx.moveTo(x, Math.max(0, visibleStartY))
+      ctx.lineTo(x, Math.min(WORLD_SIZE, visibleEndY))
       ctx.stroke()
     }
     
     for (let y = startY; y <= endY; y += gridSize) {
       ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(canvasSize.width, y)
+      ctx.moveTo(Math.max(0, visibleStartX), y)
+      ctx.lineTo(Math.min(WORLD_SIZE, visibleEndX), y)
       ctx.stroke()
     }
     
-    if (zoom >= 2) {
-      ctx.strokeStyle = getCSSColor('--canvas-grid')
-      ctx.globalAlpha = 0.3
-      ctx.lineWidth = 0.3
-      const fineGridSize = 1
-      
-      for (let x = startX; x <= endX; x += fineGridSize) {
-        if (x % gridSize !== 0) {
-          ctx.beginPath()
-          ctx.moveTo(x, 0)
-          ctx.lineTo(x, canvasSize.height)
-          ctx.stroke()
-        }
-      }
-      
-      for (let y = startY; y <= endY; y += fineGridSize) {
-        if (y % gridSize !== 0) {
-          ctx.beginPath()
-          ctx.moveTo(0, y)
-          ctx.lineTo(canvasSize.width, y)
-          ctx.stroke()
-        }
-      }
-      ctx.globalAlpha = 1
-    }
+    ctx.globalAlpha = 1
+    
 
     if (points.length === 0) {
       ctx.restore()
@@ -913,8 +932,33 @@ function Canvas({
   }
   
   const handleResetZoom = () => {
-    setZoom(1)
-    setPan({ x: 0, y: 0 })
+    if (points.length > 0) {
+      // Fit to content - calculate bounds of all points
+      const minX = Math.min(...points.map(p => p.x))
+      const maxX = Math.max(...points.map(p => p.x))
+      const minY = Math.min(...points.map(p => p.y))
+      const maxY = Math.max(...points.map(p => p.y))
+      
+      const contentWidth = maxX - minX + 200 // Add padding
+      const contentHeight = maxY - minY + 200
+      
+      const scaleX = canvasSize.width / contentWidth
+      const scaleY = canvasSize.height / contentHeight
+      const newZoom = Math.min(scaleX, scaleY, 2) // Max zoom 2x
+      
+      const centerX = (minX + maxX) / 2
+      const centerY = (minY + maxY) / 2
+      
+      setPan({
+        x: canvasSize.width / 2 - centerX * newZoom,
+        y: canvasSize.height / 2 - centerY * newZoom
+      })
+      setZoom(newZoom)
+    } else {
+      // Default view - show area around origin suitable for typical rooms
+      setZoom(0.5)
+      setPan({ x: 50, y: 50 })
+    }
   }
 
   const handleUndo = () => {
