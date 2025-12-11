@@ -548,6 +548,12 @@ function Canvas({
   const handleWallMenuAddPoint = () => {
     if (wallMenuData) {
       const newPoints = addPointOnWall(points, wallMenuData.wallIndex, wallMenuData.clickPosition)
+      // Check if adding this point would cause intersections
+      if (wouldCauseIntersection(newPoints, wallMenuData.wallIndex + 1, newPoints[wallMenuData.wallIndex + 1])) {
+        toast.error('Нельзя добавить точку: стены будут пересекаться')
+        setWallMenuData(null)
+        return
+      }
       onPointsChange(newPoints)
       if (navigator.vibrate) navigator.vibrate(10)
       setWallMenuData(null)
@@ -943,7 +949,7 @@ function Canvas({
       <div 
         ref={containerRef}
         className="relative flex-1 overflow-hidden bg-[hsl(var(--canvas-bg))] sm:rounded-xl sm:border sm:border-border sm:shadow-md"
-        style={{ minHeight: '50vh' }}
+        style={{ minHeight: 'calc(100vh - 120px)' }}
       >
         <canvas
           ref={canvasRef}

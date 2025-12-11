@@ -481,16 +481,18 @@ export const projectsService = {
       
       // Создаем Map для быстрого поиска
       const localByUuid = new Map<string, Project>()
-      const localByContent = new Map<string, Project>() // Ключ: customerId_userId_pointsHash
+      const localByAreaPerimeter = new Map<string, Project>() // Ключ: customerId_area_perimeter
       
       localProjects.forEach((p: Project) => {
         if (typeof p.id === 'string') {
           localByUuid.set(p.id, p)
         }
-        // Создаем ключ для поиска по содержимому (customerId + hash точек)
-        const pointsHash = JSON.stringify(p.points || [])
-        const contentKey = `${p.customerId}_${p.userId}_${pointsHash.substring(0, 50)}`
-        localByContent.set(contentKey, p)
+        // Создаем ключ для поиска по содержимому (customerId + area + perimeter)
+        // Используем округленные значения для более надежного совпадения
+        const areaRounded = Math.round(p.area * 100)
+        const perimeterRounded = Math.round(p.perimeter * 100)
+        const contentKey = `${p.customerId}_${areaRounded}_${perimeterRounded}`
+        localByAreaPerimeter.set(contentKey, p)
       })
 
       for (const item of data) {
@@ -543,15 +545,17 @@ export const projectsService = {
           continue
         }
 
-        // Проверяем, нет ли локальной записи с таким же содержимым
-        const pointsHash = JSON.stringify(points)
-        const contentKey = `${item.customer_id}_${item.user_id}_${pointsHash.substring(0, 50)}`
-        const existingByContent = localByContent.get(contentKey)
+        // Проверяем, нет ли локальной записи с таким же содержимым по area/perimeter
+        const areaRounded = Math.round(item.area * 100)
+        const perimeterRounded = Math.round(item.perimeter * 100)
+        const contentKey = `${item.customer_id}_${areaRounded}_${perimeterRounded}`
+        const existingByContent = localByAreaPerimeter.get(contentKey)
         
         if (existingByContent) {
           // Найдена локальная запись с таким же содержимым
           if (typeof existingByContent.id === 'number') {
             // Это локальная запись с числовым ID - заменяем на UUID
+            console.log('Удаляем локальный дубликат:', existingByContent.id, '-> заменяем на UUID:', item.id)
             await db.projects.delete(existingByContent.id)
             // Удаляем из очереди синхронизации
             const queueItems = await db.syncQueue
@@ -561,7 +565,7 @@ export const projectsService = {
             for (const queueItem of queueItems) {
               await db.syncQueue.delete(queueItem.id!)
             }
-          } else {
+          } else if (existingByContent.id !== item.id) {
             // Это уже запись с UUID, но другой ID - пропускаем, чтобы избежать дублирования
             console.log('Пропускаем дубликат проекта:', item.id, existingByContent.id)
             continue
