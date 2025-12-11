@@ -7,7 +7,8 @@ import {
   getRoomDiagonals, 
   resizeDiagonal,
   addPointOnWall,
-  distanceToLine
+  distanceToLine,
+  wouldCauseIntersection
 } from '@/core/utils/canvasGeometry'
 import { Button } from '@/components/ui/button'
 import { Undo2, Trash2, Check, MousePointer, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react'
@@ -622,6 +623,12 @@ function Canvas({
         x: snapToGrid(pos.x),
         y: snapToGrid(pos.y)
       })
+      
+      // Проверяем, не приведёт ли перемещение к пересечению стен
+      if (wouldCauseIntersection(points, draggedPoint, snappedPos)) {
+        return // Не перемещаем точку если будет пересечение
+      }
+      
       const newPoints = [...points]
       newPoints[draggedPoint] = snappedPos
       onPointsChange(newPoints)
@@ -693,6 +700,12 @@ function Canvas({
         x: snapToGrid(pos.x),
         y: snapToGrid(pos.y)
       })
+      
+      // Проверяем, не приведёт ли перемещение к пересечению стен
+      if (wouldCauseIntersection(points, draggedPoint, snappedPos)) {
+        return // Не перемещаем точку если будет пересечение
+      }
+      
       const newPoints = [...points]
       newPoints[draggedPoint] = snappedPos
       onPointsChange(newPoints)
