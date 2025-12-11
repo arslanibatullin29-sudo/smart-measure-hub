@@ -114,48 +114,31 @@ function ProjectEditor() {
   }, [customerId, user?.id, points, area, perimeter, selectedProfileId, projectId, updateProject, createProject, navigate])
 
   return (
-    <div className="w-full space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-center gap-2 sm:gap-4">
+    <div className="w-full space-y-2 sm:space-y-4 md:space-y-6 px-2 sm:px-4 md:px-6 pb-4">
+      {/* Compact Header for mobile */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="icon"
             onClick={() => navigate(`/customers/${customerId}/projects`)}
-            className="h-10 w-10 sm:h-9 sm:w-9"
+            className="h-9 w-9 shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">
-              {projectId ? 'Редактировать объект' : 'Новый объект'}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 hidden sm:block">
-              Нарисуйте план помещения, кликая по canvas для добавления точек
-            </p>
-          </div>
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-bold text-foreground truncate">
+            {projectId ? 'Редактировать' : 'Новый объект'}
+          </h1>
         </div>
-        <div className="flex gap-2 sm:gap-3">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/customers/${customerId}/projects`)}
-            className="flex-1 sm:flex-initial h-10 sm:h-9 text-sm"
-          >
-            Отмена
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={(isCreating || isUpdating) || points.length < 3}
-            className="flex-1 sm:flex-initial h-12 sm:h-9 text-sm min-w-[120px] touch-manipulation"
-          >
-            {(isCreating || isUpdating) ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Сохранение...
-              </>
-            ) : 'Сохранить'}
-          </Button>
-        </div>
+        <Button
+          onClick={handleSave}
+          disabled={(isCreating || isUpdating) || points.length < 3}
+          className="h-9 px-3 sm:px-4 text-sm touch-manipulation shrink-0"
+        >
+          {(isCreating || isUpdating) ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : 'Сохранить'}
+        </Button>
       </div>
 
       {/* Canvas */}
