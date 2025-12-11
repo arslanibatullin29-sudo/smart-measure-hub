@@ -72,23 +72,38 @@ function Canvas({
     }
   }, [width, height])
 
-  // Update canvas display size to match container
+  // Update canvas display size to match container while maintaining aspect ratio
   useEffect(() => {
     const updateCanvasSize = () => {
       const canvas = canvasRef.current
       const container = containerRef.current
       if (canvas && container) {
         const rect = container.getBoundingClientRect()
-        // Set display size to match container
-        canvas.style.width = `${rect.width}px`
-        canvas.style.height = `${rect.height}px`
+        const canvasAspect = canvasSize.width / canvasSize.height
+        const containerAspect = rect.width / rect.height
+        
+        let displayWidth: number
+        let displayHeight: number
+        
+        if (containerAspect > canvasAspect) {
+          // Container is wider - fit by height
+          displayHeight = rect.height
+          displayWidth = rect.height * canvasAspect
+        } else {
+          // Container is taller - fit by width
+          displayWidth = rect.width
+          displayHeight = rect.width / canvasAspect
+        }
+        
+        canvas.style.width = `${displayWidth}px`
+        canvas.style.height = `${displayHeight}px`
       }
     }
 
     updateCanvasSize()
     window.addEventListener('resize', updateCanvasSize)
     return () => window.removeEventListener('resize', updateCanvasSize)
-  }, [])
+  }, [canvasSize.width, canvasSize.height])
   
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null)
@@ -418,14 +433,14 @@ function Canvas({
     const clientX = 'touches' in e ? e.touches[0]?.clientX || 0 : e.clientX
     const clientY = 'touches' in e ? e.touches[0]?.clientY || 0 : e.clientY
     
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
+    // Use uniform scale to prevent distortion
+    const scale = canvas.width / rect.width
     
     const viewX = clientX - rect.left
     const viewY = clientY - rect.top
     
-    const logicalX = viewX * scaleX
-    const logicalY = viewY * scaleY
+    const logicalX = viewX * scale
+    const logicalY = viewY * scale
     
     const x = (logicalX - pan.x) / zoom
     const y = (logicalY - pan.y) / zoom
@@ -443,15 +458,15 @@ function Canvas({
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
+    // Use uniform scale to prevent distortion
+    const scale = canvas.width / rect.width
     
     const viewX = (touch1.clientX + touch2.clientX) / 2 - rect.left
     const viewY = (touch1.clientY + touch2.clientY) / 2 - rect.top
     
     return {
-      x: viewX * scaleX,
-      y: viewY * scaleY,
+      x: viewX * scale,
+      y: viewY * scale,
     }
   }
 
@@ -473,12 +488,11 @@ function Canvas({
     if (!canvas) return { x: 0, y: 0 }
     
     const canvasRect = canvas.getBoundingClientRect()
+    // Use uniform scale to prevent distortion
+    const scale = canvasRect.width / canvas.width
     
-    const scaleX = canvasRect.width / canvas.width
-    const scaleY = canvasRect.height / canvas.height
-    
-    const screenX = (canvasPos.x * zoom + pan.x) * scaleX
-    const screenY = (canvasPos.y * zoom + pan.y) * scaleY
+    const screenX = (canvasPos.x * zoom + pan.x) * scale
+    const screenY = (canvasPos.y * zoom + pan.y) * scale
     
     return { x: screenX, y: screenY }
   }
