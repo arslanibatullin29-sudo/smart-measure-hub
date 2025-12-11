@@ -668,16 +668,16 @@ function Canvas({
       const canvas = canvasRef.current
       if (canvas) {
         const rect = canvas.getBoundingClientRect()
-        const scaleX = canvas.width / rect.width
-        const scaleY = canvas.height / rect.height
+        // Use uniform scale
+        const displayScale = canvas.width / rect.width
         
         const currentViewX = e.clientX - rect.left
         const currentViewY = e.clientY - rect.top
         const lastViewX = lastPanPoint.x - rect.left
         const lastViewY = lastPanPoint.y - rect.top
         
-        const deltaX = (currentViewX - lastViewX) * scaleX
-        const deltaY = (currentViewY - lastViewY) * scaleY
+        const deltaX = (currentViewX - lastViewX) * displayScale
+        const deltaY = (currentViewY - lastViewY) * displayScale
         
         setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }))
       }
@@ -748,16 +748,16 @@ function Canvas({
         const canvas = canvasRef.current
         if (canvas) {
           const rect = canvas.getBoundingClientRect()
-          const scaleX = canvas.width / rect.width
-          const scaleY = canvas.height / rect.height
+          // Use uniform scale
+          const displayScale = canvas.width / rect.width
           
           const currentViewX = touch.clientX - rect.left
           const currentViewY = touch.clientY - rect.top
           const lastViewX = lastPanPoint.x - rect.left
           const lastViewY = lastPanPoint.y - rect.top
           
-          const deltaX = (currentViewX - lastViewX) * scaleX
-          const deltaY = (currentViewY - lastViewY) * scaleY
+          const deltaX = (currentViewX - lastViewX) * displayScale
+          const deltaY = (currentViewY - lastViewY) * displayScale
           
           setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }))
         }
@@ -806,13 +806,13 @@ function Canvas({
         const canvas = canvasRef.current
         if (canvas) {
           const rect = canvas.getBoundingClientRect()
-          const scaleX = canvas.width / rect.width
-          const scaleY = canvas.height / rect.height
+          // Use uniform scale
+          const displayScale = canvas.width / rect.width
           
           const viewX = touchStartPos.x - rect.left
           const viewY = touchStartPos.y - rect.top
-          const logicalX = viewX * scaleX
-          const logicalY = viewY * scaleY
+          const logicalX = viewX * displayScale
+          const logicalY = viewY * displayScale
           
           const x = (logicalX - pan.x) / zoom
           const y = (logicalY - pan.y) / zoom
@@ -822,8 +822,9 @@ function Canvas({
             y: Math.round(y)
           })
           
+          // Use WORLD_SIZE for bounds check, not display canvas size
           if (snappedPos.x >= 0 && snappedPos.y >= 0 && 
-              snappedPos.x <= canvasSize.width && snappedPos.y <= canvasSize.height) {
+              snappedPos.x <= WORLD_SIZE && snappedPos.y <= WORLD_SIZE) {
             
             // Check if tapped on existing point
             const existingPoint = findPointAtPosition(snappedPos)
@@ -906,13 +907,13 @@ function Canvas({
     const canvas = canvasRef.current
     const rect = canvas?.getBoundingClientRect()
     if (canvas && rect) {
-      const scaleX = canvas.width / rect.width
-      const scaleY = canvas.height / rect.height
+      // Use uniform scale
+      const displayScale = canvas.width / rect.width
       
       const viewX = e.clientX - rect.left
       const viewY = e.clientY - rect.top
-      const logicalX = viewX * scaleX
-      const logicalY = viewY * scaleY
+      const logicalX = viewX * displayScale
+      const logicalY = viewY * displayScale
       
       const zoomFactor = newZoom / zoom
       setPan(prev => ({
