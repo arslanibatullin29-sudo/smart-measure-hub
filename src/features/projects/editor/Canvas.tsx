@@ -72,14 +72,24 @@ function Canvas({
     }
   }, [width, height])
 
-  // Update canvas to fill container completely
+  // Update canvas internal size to match container - prevents stretching
   useEffect(() => {
     const updateCanvasSize = () => {
       const canvas = canvasRef.current
       const container = containerRef.current
       if (canvas && container) {
         const rect = container.getBoundingClientRect()
-        // Fill container completely - no aspect ratio constraints
+        // Use device pixel ratio for sharp rendering
+        const dpr = window.devicePixelRatio || 1
+        const newWidth = Math.floor(rect.width * dpr)
+        const newHeight = Math.floor(rect.height * dpr)
+        
+        // Update internal canvas size to match container exactly
+        if (canvas.width !== newWidth || canvas.height !== newHeight) {
+          setCanvasSize({ width: newWidth, height: newHeight })
+        }
+        
+        // Display size matches container
         canvas.style.width = `${rect.width}px`
         canvas.style.height = `${rect.height}px`
       }
