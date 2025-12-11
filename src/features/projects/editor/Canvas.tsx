@@ -99,14 +99,17 @@ function Canvas({
     return () => window.removeEventListener('resize', updateCanvasSize)
   }, [])
 
-  // Set initial view when canvas size is determined
+  // Set initial view - center the drawing area
   useEffect(() => {
     if (canvasSize.width > 100 && canvasSize.height > 100 && points.length === 0) {
-      // Start with a view showing ~10m x 10m area (1000px x 1000px at scale=1)
-      const targetAreaSize = 1000
-      const zoomToFit = Math.min(canvasSize.width, canvasSize.height) / targetAreaSize
-      setZoom(Math.max(0.3, Math.min(zoomToFit, 1)))
-      setPan({ x: 50, y: 50 })
+      // Center the view on a reasonable starting point (5m from origin = 500px)
+      const centerWorld = 500
+      const initialZoom = 0.5
+      setPan({
+        x: canvasSize.width / 2 - centerWorld * initialZoom,
+        y: canvasSize.height / 2 - centerWorld * initialZoom
+      })
+      setZoom(initialZoom)
     }
   }, [canvasSize.width, canvasSize.height])
   
