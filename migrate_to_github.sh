@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Скрипт для переноса проекта в GitHub репозиторий
-# https://github.com/arslanibatullin29-sudo/smart-measure-pro.git
+# https://github.com/arslanibatullin29-sudo/smart-measure-hub.git
 
 set -e
 
@@ -16,7 +16,7 @@ fi
 # Добавляем или обновляем remote
 echo "🔗 Настраиваем remote репозиторий..."
 git remote remove origin 2>/dev/null || true
-git remote add origin https://github.com/arslanibatullin29-sudo/smart-measure-pro.git
+git remote add origin https://github.com/arslanibatullin29-sudo/smart-measure-hub.git
 
 # Проверяем remote
 echo "✅ Remote репозиторий настроен:"
@@ -50,7 +50,7 @@ echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     git push -u origin main --force
     echo "✅ Проект успешно перенесен в GitHub репозиторий!"
-    echo "🔗 Репозиторий: https://github.com/arslanibatullin29-sudo/smart-measure-pro"
+    echo "🔗 Репозиторий: https://github.com/arslanibatullin29-sudo/smart-measure-hub"
 else
     echo "❌ Операция отменена"
     exit 1
