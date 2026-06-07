@@ -14,7 +14,274 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          address: string
+          comment: string
+          created_at: string
+          full_name: string
+          id: string
+          last_synced_at: string | null
+          phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string
+          comment?: string
+          created_at?: string
+          full_name: string
+          id?: string
+          last_synced_at?: string | null
+          phone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          comment?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          last_synced_at?: string | null
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      installation_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          last_synced_at: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          last_synced_at?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          last_synced_at?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      materials: {
+        Row: {
+          calculation_type: string
+          coefficient: number
+          created_at: string
+          id: string
+          initial_quantity: number | null
+          name: string
+          price: number
+          profile_id: string
+          purchase_price: number | null
+          total_cost: number | null
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calculation_type?: string
+          coefficient?: number
+          created_at?: string
+          id?: string
+          initial_quantity?: number | null
+          name: string
+          price?: number
+          profile_id: string
+          purchase_price?: number | null
+          total_cost?: number | null
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calculation_type?: string
+          coefficient?: number
+          created_at?: string
+          id?: string
+          initial_quantity?: number | null
+          name?: string
+          price?: number
+          profile_id?: string
+          purchase_price?: number | null
+          total_cost?: number | null
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "installation_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          area: number
+          created_at: string
+          customer_id: string | null
+          element_count: number
+          estimate_data: Json | null
+          id: string
+          last_synced_at: string | null
+          perimeter: number
+          points: Json
+          profile_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area?: number
+          created_at?: string
+          customer_id?: string | null
+          element_count?: number
+          estimate_data?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          perimeter?: number
+          points?: Json
+          profile_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area?: number
+          created_at?: string
+          customer_id?: string | null
+          element_count?: number
+          estimate_data?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          perimeter?: number
+          points?: Json
+          profile_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "installation_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_materials: {
+        Row: {
+          calculation_override: string | null
+          created_at: string
+          id: string
+          material_id: string
+          quantity: number
+          work_id: string
+        }
+        Insert: {
+          calculation_override?: string | null
+          created_at?: string
+          id?: string
+          material_id: string
+          quantity?: number
+          work_id: string
+        }
+        Update: {
+          calculation_override?: string | null
+          created_at?: string
+          id?: string
+          material_id?: string
+          quantity?: number
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_materials_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      works: {
+        Row: {
+          calculation_type: string
+          created_at: string
+          id: string
+          name: string
+          profile_id: string
+          unit: string
+          updated_at: string
+          user_id: string
+          work_price: number
+        }
+        Insert: {
+          calculation_type?: string
+          created_at?: string
+          id?: string
+          name: string
+          profile_id: string
+          unit?: string
+          updated_at?: string
+          user_id: string
+          work_price?: number
+        }
+        Update: {
+          calculation_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          profile_id?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string
+          work_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "works_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "installation_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
