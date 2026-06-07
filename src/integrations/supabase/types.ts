@@ -10,72 +10,72 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
       customers: {
         Row: {
-          address: string | null
-          comment: string | null
-          created_at: string | null
+          address: string
+          comment: string
+          created_at: string
           full_name: string
           id: string
           last_synced_at: string | null
-          phone: string | null
-          updated_at: string | null
+          phone: string
+          updated_at: string
           user_id: string
         }
         Insert: {
-          address?: string | null
-          comment?: string | null
-          created_at?: string | null
+          address?: string
+          comment?: string
+          created_at?: string
           full_name: string
           id?: string
           last_synced_at?: string | null
-          phone?: string | null
-          updated_at?: string | null
+          phone?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
-          address?: string | null
-          comment?: string | null
-          created_at?: string | null
+          address?: string
+          comment?: string
+          created_at?: string
           full_name?: string
           id?: string
           last_synced_at?: string | null
-          phone?: string | null
-          updated_at?: string | null
+          phone?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
       installation_profiles: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
-          is_default: boolean | null
+          is_default: boolean
           last_synced_at: string | null
           name: string
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_default?: boolean | null
+          is_default?: boolean
           last_synced_at?: string | null
           name: string
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
-          is_default?: boolean | null
+          is_default?: boolean
           last_synced_at?: string | null
           name?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -83,8 +83,8 @@ export type Database = {
       materials: {
         Row: {
           calculation_type: string
-          coefficient: number | null
-          created_at: string | null
+          coefficient: number
+          created_at: string
           id: string
           initial_quantity: number | null
           name: string
@@ -93,28 +93,28 @@ export type Database = {
           purchase_price: number | null
           total_cost: number | null
           unit: string
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
-          calculation_type: string
-          coefficient?: number | null
-          created_at?: string | null
+          calculation_type?: string
+          coefficient?: number
+          created_at?: string
           id?: string
           initial_quantity?: number | null
           name: string
-          price: number
+          price?: number
           profile_id: string
           purchase_price?: number | null
           total_cost?: number | null
-          unit: string
-          updated_at?: string | null
+          unit?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           calculation_type?: string
-          coefficient?: number | null
-          created_at?: string | null
+          coefficient?: number
+          created_at?: string
           id?: string
           initial_quantity?: number | null
           name?: string
@@ -123,7 +123,7 @@ export type Database = {
           purchase_price?: number | null
           total_cost?: number | null
           unit?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -139,44 +139,44 @@ export type Database = {
       projects: {
         Row: {
           area: number
-          created_at: string | null
-          customer_id: string
-          element_count: number | null
+          created_at: string
+          customer_id: string | null
+          element_count: number
           estimate_data: Json | null
           id: string
           last_synced_at: string | null
           perimeter: number
           points: Json
           profile_id: string | null
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
-          area: number
-          created_at?: string | null
-          customer_id: string
-          element_count?: number | null
-          estimate_data?: Json | null
-          id?: string
-          last_synced_at?: string | null
-          perimeter: number
-          points: Json
-          profile_id?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
           area?: number
-          created_at?: string | null
-          customer_id?: string
-          element_count?: number | null
+          created_at?: string
+          customer_id?: string | null
+          element_count?: number
           estimate_data?: Json | null
           id?: string
           last_synced_at?: string | null
           perimeter?: number
           points?: Json
           profile_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area?: number
+          created_at?: string
+          customer_id?: string | null
+          element_count?: number
+          estimate_data?: Json | null
+          id?: string
+          last_synced_at?: string | null
+          perimeter?: number
+          points?: Json
+          profile_id?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -199,26 +199,26 @@ export type Database = {
       work_materials: {
         Row: {
           calculation_override: string | null
-          created_at: string | null
+          created_at: string
           id: string
           material_id: string
-          quantity: number | null
+          quantity: number
           work_id: string
         }
         Insert: {
           calculation_override?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           material_id: string
-          quantity?: number | null
+          quantity?: number
           work_id: string
         }
         Update: {
           calculation_override?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           material_id?: string
-          quantity?: number | null
+          quantity?: number
           work_id?: string
         }
         Relationships: [
@@ -241,34 +241,34 @@ export type Database = {
       works: {
         Row: {
           calculation_type: string
-          created_at: string | null
+          created_at: string
           id: string
           name: string
           profile_id: string
           unit: string
-          updated_at: string | null
+          updated_at: string
           user_id: string
           work_price: number
         }
         Insert: {
-          calculation_type: string
-          created_at?: string | null
+          calculation_type?: string
+          created_at?: string
           id?: string
           name: string
           profile_id: string
-          unit: string
-          updated_at?: string | null
+          unit?: string
+          updated_at?: string
           user_id: string
-          work_price: number
+          work_price?: number
         }
         Update: {
           calculation_type?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           name?: string
           profile_id?: string
           unit?: string
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
           work_price?: number
         }

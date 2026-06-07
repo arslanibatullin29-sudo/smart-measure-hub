@@ -365,7 +365,7 @@ export const projectsService = {
 
         const project: Project = {
           id: item.id,
-          customerId: item.customer_id,
+          customerId: item.customer_id ?? '',
           userId: item.user_id,
           profileId: item.profile_id || null,
           createdAt: item.created_at ?? new Date().toISOString(),
@@ -519,7 +519,7 @@ export const projectsService = {
 
         const project: Project = {
           id: item.id,
-          customerId: item.customer_id,
+          customerId: item.customer_id ?? '',
           userId: item.user_id,
           profileId: item.profile_id || null,
           createdAt: item.created_at ?? new Date().toISOString(),
