@@ -43,3 +43,7 @@ rebuild: ## Пересобрать без кэша
 shell: ## Войти в контейнер
 	docker compose exec frontend sh
 
+restore-db: ## Восстановить Supabase backup через Docker (нужен SUPABASE_DB_PASSWORD)
+	@test -n "$$SUPABASE_DB_PASSWORD" || (echo "Set SUPABASE_DB_PASSWORD first. See scripts/restore-supabase-backup.sh" && exit 1)
+	@./scripts/restore-supabase-backup.sh $(BACKUP_FILE)
+
