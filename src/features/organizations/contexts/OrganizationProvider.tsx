@@ -44,6 +44,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         await organizationsService.createPersonalFranchise(user.id)
         list = await organizationsService.listMyMemberships()
       }
+      // Бэкфилл email/ФИО для отображения в списках сотрудников.
+      await organizationsService.backfillOwnMemberInfo(
+        user.id,
+        user.email ?? null,
+        (user.user_metadata as any)?.full_name ?? null,
+      )
       setMemberships(list)
       const stored = getActiveOrgIdSync()
       const chosen = (stored && list.find(m => m.organization_id === stored))
