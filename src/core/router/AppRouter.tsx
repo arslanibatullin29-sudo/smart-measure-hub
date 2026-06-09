@@ -12,6 +12,8 @@ import ProfilesList from '@/features/profiles/screens/ProfilesList'
 import OrganizationSettings from '@/features/organizations/screens/OrganizationSettings'
 import MembersList from '@/features/organizations/screens/MembersList'
 import AcceptInvite from '@/features/organizations/screens/AcceptInvite'
+import FranchisesList from '@/features/organizations/screens/FranchisesList'
+import Dashboard from '@/features/organizations/screens/Dashboard'
 
 function AppRouter() {
   const { user, loading } = useAuth()
@@ -116,6 +118,26 @@ function AppRouter() {
           <ProtectedRoute>
             <Layout>
               <MembersList />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/franchises"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <FranchisesList />
             </Layout>
           </ProtectedRoute>
         }
