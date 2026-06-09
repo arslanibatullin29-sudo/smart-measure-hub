@@ -553,6 +553,36 @@ export type Database = {
         Args: { _org: string; _user: string }
         Returns: boolean
       }
+      create_organization: {
+        Args: {
+          _name: string
+          _parent?: string
+          _type: Database["public"]["Enums"]["org_type"]
+        }
+        Returns: {
+          address: string | null
+          created_at: string
+          created_by: string
+          default_installation_profile_id: string | null
+          details: Json
+          email: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          organization_type: Database["public"]["Enums"]["org_type"]
+          parent_organization_id: string | null
+          phone: string | null
+          tax_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_org_role: {
         Args: {
           _org: string
