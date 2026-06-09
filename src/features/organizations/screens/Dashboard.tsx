@@ -50,19 +50,6 @@ export default function Dashboard() {
     { label: 'Объекты', value: stats.projects, icon: FolderKanban },
     ...(isHead ? [{ label: 'Франчайзи', value: stats.franchises, icon: Building2 }] : []),
   ]
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [activeOrg?.id, isHead])
-
-  const cards = [
-    { label: 'Клиенты', value: stats.customers, icon: Users },
-    { label: 'Объекты', value: stats.projects, icon: FolderKanban },
-    { label: 'Общая площадь, м²', value: stats.totalArea.toFixed(1), icon: Ruler },
-    ...(isHead ? [{ label: 'Франчайзи', value: stats.franchises, icon: Building2 }] : []),
-  ]
 
   return (
     <div className="p-4 sm:p-6 animate-fade-in">
