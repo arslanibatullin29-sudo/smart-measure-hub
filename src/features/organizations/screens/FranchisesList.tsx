@@ -43,7 +43,7 @@ export default function FranchisesList() {
   const handleCreate = async () => {
     if (!name.trim() || !user || !activeOrg) return
     try {
-      const org = await organizationsService.createOrganization(user.id, name.trim(), 'franchise', activeOrg.id)
+      await organizationsService.createOrganization(user.id, name.trim(), 'franchise', activeOrg.id)
       toast.success('Франчайзи создан')
       setName('')
       setOpen(false)

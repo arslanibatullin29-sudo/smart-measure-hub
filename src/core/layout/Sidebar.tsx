@@ -1,18 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Users, Settings, LogOut, Ruler, Building2, UserCog } from "lucide-react";
+import { Users, Settings, LogOut, Ruler, Building2, UserCog, LayoutDashboard, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { authService } from "@/features/auth/services/authService";
 import { useNavigate } from "react-router-dom";
 import { useOrganization } from "@/features/organizations/contexts/OrganizationProvider";
 import OrgSwitcher from "@/features/organizations/components/OrgSwitcher";
-
-const baseNavItems = [
-  { to: "/customers", icon: Users, label: "Клиенты" },
-  { to: "/profiles", icon: Settings, label: "Профили" },
-  { to: "/organization/members", icon: UserCog, label: "Сотрудники" },
-  { to: "/organization/settings", icon: Building2, label: "Организация" },
-];
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -24,8 +17,16 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { activeOrg } = useOrganization();
-  const navItems = baseNavItems;
+  const { activeOrg, activeRole, isHead, canManage } = useOrganization();
+
+  const navItems = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Дашборд", show: true },
+    ...(isHead ? [{ to: "/franchises", icon: Store, label: "Франчайзи", show: true }] : []),
+    { to: "/customers", icon: Users, label: "Клиенты", show: true },
+    { to: "/profiles", icon: Settings, label: "Профили", show: activeRole !== 'viewer' },
+    { to: "/organization/members", icon: UserCog, label: "Сотрудники", show: canManage },
+    { to: "/organization/settings", icon: Building2, label: "Организация", show: canManage },
+  ].filter(i => i.show);
 
   const handleLogout = async () => {
     await authService.signOut();
