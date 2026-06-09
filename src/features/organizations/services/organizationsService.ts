@@ -71,49 +71,27 @@ export const organizationsService = {
     return data as any
   },
 
-  async createPersonalFranchise(userId: string, name = 'Моя организация'): Promise<Organization> {
-    const { data: userRes } = await supabase.auth.getUser()
-    const email = userRes?.user?.email ?? null
-    const fullName = (userRes?.user?.user_metadata as any)?.full_name ?? null
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .insert({ name, organization_type: 'franchise', created_by: userId } as any)
-      .select()
-      .single()
+  async createPersonalFranchise(_userId: string, name = 'Моя организация'): Promise<Organization> {
+    const { data, error } = await supabase.rpc('create_organization' as any, {
+      _name: name, _type: 'franchise', _parent: null,
+    })
     if (error) throw error
-    const { error: mErr } = await supabase
-      .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: 'franchise_owner', status: 'active', email, full_name: fullName } as any)
-    if (mErr) throw mErr
-    return org as any
+    return data as any
   },
 
   async createOrganization(
-    userId: string,
+    _userId: string,
     name: string,
     type: OrgType,
     parentOrganizationId: string | null = null,
   ): Promise<Organization> {
-    const { data: userRes } = await supabase.auth.getUser()
-    const email = userRes?.user?.email ?? null
-    const fullName = (userRes?.user?.user_metadata as any)?.full_name ?? null
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .insert({
-        name,
-        organization_type: type,
-        parent_organization_id: type === 'franchise' ? parentOrganizationId : null,
-        created_by: userId,
-      } as any)
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('create_organization' as any, {
+      _name: name,
+      _type: type,
+      _parent: type === 'franchise' ? parentOrganizationId : null,
+    })
     if (error) throw error
-    const ownerRole: AppRole = type === 'head' ? 'head_owner' : 'franchise_owner'
-    const { error: mErr } = await supabase
-      .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: ownerRole, status: 'active', email, full_name: fullName } as any)
-    if (mErr) throw mErr
-    return org as any
+    return data as any
   },
 
   async backfillOwnMemberInfo(userId: string, email: string | null, fullName: string | null): Promise<void> {
