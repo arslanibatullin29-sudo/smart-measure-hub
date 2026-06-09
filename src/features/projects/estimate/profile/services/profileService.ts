@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase/supabaseClient'
 import { db, InstallationProfile, Material, Work, WorkMaterial } from '@/services/storage/indexedDB'
 import { findEntityById } from '@/shared/utils/dbHelpers'
+import { getActiveOrgIdForUser } from '@/features/organizations/services/activeOrg'
 import { isUUID } from '@/shared/utils/uuid'
 
 // Кэш последней синхронизации
