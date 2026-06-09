@@ -72,6 +72,9 @@ export const organizationsService = {
   },
 
   async createPersonalFranchise(userId: string, name = 'Моя организация'): Promise<Organization> {
+    const { data: userRes } = await supabase.auth.getUser()
+    const email = userRes?.user?.email ?? null
+    const fullName = (userRes?.user?.user_metadata as any)?.full_name ?? null
     const { data: org, error } = await supabase
       .from('organizations')
       .insert({ name, organization_type: 'franchise', created_by: userId } as any)
@@ -80,7 +83,7 @@ export const organizationsService = {
     if (error) throw error
     const { error: mErr } = await supabase
       .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: 'franchise_owner', status: 'active' } as any)
+      .insert({ organization_id: org.id, user_id: userId, role: 'franchise_owner', status: 'active', email, full_name: fullName } as any)
     if (mErr) throw mErr
     return org as any
   },
