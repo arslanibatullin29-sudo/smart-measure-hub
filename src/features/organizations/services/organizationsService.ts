@@ -71,7 +71,7 @@ export const organizationsService = {
     return data as any
   },
 
-  async createPersonalFranchise(userId: string, name = 'Моя организация'): Promise<Organization> {
+  async createPersonalFranchise(_userId: string, name = 'Моя организация'): Promise<Organization> {
     const { data, error } = await supabase.rpc('create_organization' as any, {
       _name: name, _type: 'franchise', _parent: null,
     })
