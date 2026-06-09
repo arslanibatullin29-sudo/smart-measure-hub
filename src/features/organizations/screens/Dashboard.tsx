@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useOrganization } from '../contexts/OrganizationProvider'
 import { supabase } from '@/services/supabase/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, FolderKanban, Building2, Ruler } from 'lucide-react'
+import { Users, FolderKanban, Building2 } from 'lucide-react'
 
 interface Stats {
   customers: number
