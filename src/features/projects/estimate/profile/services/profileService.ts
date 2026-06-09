@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase/supabaseClient'
 import { db, InstallationProfile, Material, Work, WorkMaterial } from '@/services/storage/indexedDB'
 import { findEntityById } from '@/shared/utils/dbHelpers'
+import { getActiveOrgIdForUser } from '@/features/organizations/services/activeOrg'
 import { isUUID } from '@/shared/utils/uuid'
 
 // Кэш последней синхронизации
@@ -54,10 +55,13 @@ export const profileService = {
       }
     }
     
+    const organizationId = await getActiveOrgIdForUser(userId)
     const { data: serverProfile, error } = await supabase
       .from('installation_profiles')
       .insert({
         user_id: userId,
+        organization_id: organizationId,
+        created_by: userId,
         name,
         is_default: isDefault,
         created_at: now,
@@ -174,11 +178,14 @@ export const profileService = {
       }
     }
     
+    const organizationId = await getActiveOrgIdForUser(userId)
     const { data: serverMaterial, error } = await supabase
       .from('materials')
       .insert({
         profile_id: serverProfileId,
         user_id: userId,
+        organization_id: organizationId,
+        created_by: userId,
         name: data.name,
         unit: data.unit,
         price: data.price,
@@ -296,11 +303,14 @@ export const profileService = {
       }
     }
     
+    const organizationId = await getActiveOrgIdForUser(userId)
     const { data: serverWork, error } = await supabase
       .from('works')
       .insert({
         profile_id: serverProfileId,
         user_id: userId,
+        organization_id: organizationId,
+        created_by: userId,
         name: data.name,
         unit: data.unit || '',
         work_price: data.workPrice || 0,
@@ -576,10 +586,13 @@ export const profileService = {
 
       for (const profile of unsyncedProfiles) {
         const now = new Date().toISOString()
+        const organizationId = await getActiveOrgIdForUser(userId)
         const { data: serverProfile, error } = await supabase
           .from('installation_profiles')
           .insert({
             user_id: userId,
+            organization_id: organizationId,
+            created_by: userId,
             name: profile.name,
             is_default: profile.isDefault,
             created_at: profile.createdAt || now,
@@ -622,11 +635,14 @@ export const profileService = {
 
       for (const material of unsyncedMaterials) {
         const now = new Date().toISOString()
+        const organizationId = await getActiveOrgIdForUser(material.userId)
         const { data: serverMaterial, error } = await supabase
           .from('materials')
           .insert({
             profile_id: material.profileId,
             user_id: material.userId,
+            organization_id: organizationId,
+            created_by: material.userId,
             name: material.name,
             unit: material.unit,
             price: material.price,
@@ -669,11 +685,14 @@ export const profileService = {
 
       for (const work of unsyncedWorks) {
         const now = new Date().toISOString()
+        const organizationId = await getActiveOrgIdForUser(work.userId)
         const { data: serverWork, error } = await supabase
           .from('works')
           .insert({
             profile_id: work.profileId,
             user_id: work.userId,
+            organization_id: organizationId,
+            created_by: work.userId,
             name: work.name,
             unit: work.unit || '',
             work_price: work.workPrice || 0,

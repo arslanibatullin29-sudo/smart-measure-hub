@@ -9,6 +9,9 @@ import ProjectsList from '@/features/projects/screens/ProjectsList'
 import ProjectEditor from '@/features/projects/screens/ProjectEditor'
 import ProjectEstimate from '@/features/projects/screens/ProjectEstimate'
 import ProfilesList from '@/features/profiles/screens/ProfilesList'
+import OrganizationSettings from '@/features/organizations/screens/OrganizationSettings'
+import MembersList from '@/features/organizations/screens/MembersList'
+import AcceptInvite from '@/features/organizations/screens/AcceptInvite'
 
 function AppRouter() {
   const { user, loading } = useAuth()
@@ -97,6 +100,27 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/organization/settings"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <OrganizationSettings />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/organization/members"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <MembersList />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/accept-invite" element={<AcceptInvite />} />
       <Route path="/" element={<Navigate to={user ? "/customers" : "/login"} replace />} />
     </Routes>
   )

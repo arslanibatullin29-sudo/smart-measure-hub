@@ -244,10 +244,14 @@ export async function importProfileFromExcel(
           profile = { ...profile, updatedAt: now, syncStatus: 'synced' }
         } else {
           // Создаем новый профиль через сервер (чтобы получить UUID)
+          const { getActiveOrgIdForUser } = await import('@/features/organizations/services/activeOrg')
+          const organizationId = await getActiveOrgIdForUser(userId)
           const { data: serverProfile, error } = await supabase
             .from('installation_profiles')
             .insert({
               user_id: userId,
+              organization_id: organizationId,
+              created_by: userId,
               name: profileName,
               is_default: false,
               created_at: now,

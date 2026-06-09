@@ -17,77 +17,119 @@ export type Database = {
       customers: {
         Row: {
           address: string
+          assigned_to: string | null
           comment: string
           created_at: string
+          created_by: string | null
           full_name: string
           id: string
           last_synced_at: string | null
+          organization_id: string
           phone: string
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           address?: string
+          assigned_to?: string | null
           comment?: string
           created_at?: string
+          created_by?: string | null
           full_name: string
           id?: string
           last_synced_at?: string | null
+          organization_id: string
           phone?: string
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           address?: string
+          assigned_to?: string | null
           comment?: string
           created_at?: string
+          created_by?: string | null
           full_name?: string
           id?: string
           last_synced_at?: string | null
+          organization_id?: string
           phone?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       installation_profiles: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           is_default: boolean
+          is_locked: boolean
+          is_shared: boolean
           last_synced_at: string | null
           name: string
+          organization_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           is_default?: boolean
+          is_locked?: boolean
+          is_shared?: boolean
           last_synced_at?: string | null
           name: string
+          organization_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           is_default?: boolean
+          is_locked?: boolean
+          is_shared?: boolean
           last_synced_at?: string | null
           name?: string
+          organization_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "installation_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materials: {
         Row: {
           calculation_type: string
           coefficient: number
           created_at: string
+          created_by: string | null
           id: string
           initial_quantity: number | null
           name: string
+          organization_id: string
           price: number
           profile_id: string
           purchase_price: number | null
@@ -100,9 +142,11 @@ export type Database = {
           calculation_type?: string
           coefficient?: number
           created_at?: string
+          created_by?: string | null
           id?: string
           initial_quantity?: number | null
           name: string
+          organization_id: string
           price?: number
           profile_id: string
           purchase_price?: number | null
@@ -115,9 +159,11 @@ export type Database = {
           calculation_type?: string
           coefficient?: number
           created_at?: string
+          created_by?: string | null
           id?: string
           initial_quantity?: number | null
           name?: string
+          organization_id?: string
           price?: number
           profile_id?: string
           purchase_price?: number | null
@@ -128,6 +174,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "materials_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "materials_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -136,46 +189,229 @@ export type Database = {
           },
         ]
       }
-      projects: {
+      organization_invitations: {
         Row: {
-          area: number
+          accepted_at: string | null
+          accepted_by: string | null
           created_at: string
-          customer_id: string | null
-          element_count: number
-          estimate_data: Json | null
+          email: string
+          expires_at: string
           id: string
-          last_synced_at: string | null
-          perimeter: number
-          points: Json
-          profile_id: string | null
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_invitations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status: Database["public"]["Enums"]["member_status"]
           updated_at: string
           user_id: string
         }
         Insert: {
-          area?: number
           created_at?: string
-          customer_id?: string | null
-          element_count?: number
-          estimate_data?: Json | null
+          email?: string | null
+          full_name?: string | null
           id?: string
-          last_synced_at?: string | null
-          perimeter?: number
-          points?: Json
-          profile_id?: string | null
+          invited_by?: string | null
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
           user_id: string
         }
         Update: {
-          area?: number
           created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: Database["public"]["Enums"]["member_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string
+          default_installation_profile_id: string | null
+          details: Json
+          email: string | null
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          organization_type: Database["public"]["Enums"]["org_type"]
+          parent_organization_id: string | null
+          phone: string | null
+          tax_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by: string
+          default_installation_profile_id?: string | null
+          details?: Json
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          organization_type: Database["public"]["Enums"]["org_type"]
+          parent_organization_id?: string | null
+          phone?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string
+          default_installation_profile_id?: string | null
+          details?: Json
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          organization_type?: Database["public"]["Enums"]["org_type"]
+          parent_organization_id?: string | null
+          phone?: string | null
+          tax_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_organization_id_fkey"
+            columns: ["parent_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          approved_at: string | null
+          area: number
+          assigned_to: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          element_count: number
+          estimate_data: Json | null
+          estimate_total: number | null
+          id: string
+          last_synced_at: string | null
+          organization_id: string
+          perimeter: number
+          points: Json
+          profile_id: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["project_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          area?: number
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
           customer_id?: string | null
           element_count?: number
           estimate_data?: Json | null
+          estimate_total?: number | null
           id?: string
           last_synced_at?: string | null
+          organization_id: string
           perimeter?: number
           points?: Json
           profile_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          area?: number
+          assigned_to?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          element_count?: number
+          estimate_data?: Json | null
+          estimate_total?: number | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id?: string
+          perimeter?: number
+          points?: Json
+          profile_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
           user_id?: string
         }
@@ -185,6 +421,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -242,8 +485,10 @@ export type Database = {
         Row: {
           calculation_type: string
           created_at: string
+          created_by: string | null
           id: string
           name: string
+          organization_id: string
           profile_id: string
           unit: string
           updated_at: string
@@ -253,8 +498,10 @@ export type Database = {
         Insert: {
           calculation_type?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
+          organization_id: string
           profile_id: string
           unit?: string
           updated_at?: string
@@ -264,8 +511,10 @@ export type Database = {
         Update: {
           calculation_type?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
+          organization_id?: string
           profile_id?: string
           unit?: string
           updated_at?: string
@@ -273,6 +522,13 @@ export type Database = {
           work_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "works_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "works_profile_id_fkey"
             columns: ["profile_id"]
@@ -287,10 +543,47 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_invitation: { Args: { _token: string }; Returns: string }
+      accessible_org_ids: { Args: { _user: string }; Returns: string[] }
+      can_access_org: {
+        Args: { _org: string; _user: string }
+        Returns: boolean
+      }
+      can_manage_org: {
+        Args: { _org: string; _user: string }
+        Returns: boolean
+      }
+      has_org_role: {
+        Args: {
+          _org: string
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user: string
+        }
+        Returns: boolean
+      }
+      is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "head_owner"
+        | "head_admin"
+        | "head_viewer"
+        | "franchise_owner"
+        | "franchise_admin"
+        | "manager"
+        | "measurer"
+        | "viewer"
+      invitation_status: "pending" | "accepted" | "expired" | "cancelled"
+      member_status: "active" | "invited" | "disabled"
+      org_type: "head" | "franchise"
+      project_status:
+        | "new"
+        | "measurement_done"
+        | "estimate_sent"
+        | "approved"
+        | "in_progress"
+        | "completed"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -417,6 +710,29 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "head_owner",
+        "head_admin",
+        "head_viewer",
+        "franchise_owner",
+        "franchise_admin",
+        "manager",
+        "measurer",
+        "viewer",
+      ],
+      invitation_status: ["pending", "accepted", "expired", "cancelled"],
+      member_status: ["active", "invited", "disabled"],
+      org_type: ["head", "franchise"],
+      project_status: [
+        "new",
+        "measurement_done",
+        "estimate_sent",
+        "approved",
+        "in_progress",
+        "completed",
+        "rejected",
+      ],
+    },
   },
 } as const

@@ -1,13 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
-import { Users, Settings, LogOut, Ruler } from "lucide-react";
+import { Users, Settings, LogOut, Ruler, Building2, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { authService } from "@/features/auth/services/authService";
 import { useNavigate } from "react-router-dom";
+import { useOrganization } from "@/features/organizations/contexts/OrganizationProvider";
+import OrgSwitcher from "@/features/organizations/components/OrgSwitcher";
 
-const navItems = [
+const baseNavItems = [
   { to: "/customers", icon: Users, label: "Клиенты" },
   { to: "/profiles", icon: Settings, label: "Профили" },
+  { to: "/organization/members", icon: UserCog, label: "Сотрудники" },
+  { to: "/organization/settings", icon: Building2, label: "Организация" },
 ];
 
 interface SidebarProps {
@@ -19,6 +23,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const location = useLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const { activeOrg } = useOrganization();
+  const navItems = baseNavItems;
 
   const handleLogout = async () => {
     await authService.signOut();
@@ -51,6 +58,14 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </div>
         </Link>
       </div>
+
+      {activeOrg && (
+        <div className="px-3 pt-2 pb-1 space-y-1">
+          <div className="text-[10px] uppercase text-sidebar-foreground/50">Активная организация</div>
+          <div className="text-xs text-sidebar-foreground truncate">{activeOrg.name}</div>
+          <OrgSwitcher />
+        </div>
+      )}
 
       {/* Navigation - компактная */}
       <nav className="flex-1 p-2 sm:p-3 space-y-0.5">

@@ -127,10 +127,14 @@ export const customersService = {
   // Синхронизация с сервером (создание/обновление)
   async syncToServer(customer: Customer): Promise<void> {
     try {
+      const { getActiveOrgIdForUser } = await import('@/features/organizations/services/activeOrg')
+      const organizationId = await getActiveOrgIdForUser(customer.userId)
       // Если ID - число (локальный), не отправляем его (Supabase создаст UUID)
       // Если ID - строка (UUID), отправляем для обновления
       const payload: any = {
         user_id: customer.userId,
+        organization_id: organizationId,
+        created_by: customer.userId,
         full_name: customer.fullName,
         address: customer.address,
         phone: customer.phone,

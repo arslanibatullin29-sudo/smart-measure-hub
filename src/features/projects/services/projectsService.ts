@@ -179,11 +179,15 @@ export const projectsService = {
 
   async syncToServer(project: Project): Promise<void> {
     try {
+      const { getActiveOrgIdForUser } = await import('@/features/organizations/services/activeOrg')
+      const organizationId = await getActiveOrgIdForUser(project.userId)
       // Если ID - число (локальный), не отправляем его (Supabase создаст UUID)
       // Если ID - строка (UUID), отправляем для обновления
       const payload: any = {
         customer_id: project.customerId,
         user_id: project.userId,
+        organization_id: organizationId,
+        created_by: project.userId,
         points: project.points, // JSONB принимает объекты напрямую
         area: project.area,
         perimeter: project.perimeter,
