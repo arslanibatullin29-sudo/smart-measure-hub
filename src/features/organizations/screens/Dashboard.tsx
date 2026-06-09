@@ -8,7 +8,6 @@ interface Stats {
   customers: number
   projects: number
   franchises: number
-  totalArea: number
 }
 
 export default function Dashboard() {
