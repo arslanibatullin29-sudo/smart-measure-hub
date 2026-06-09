@@ -2,18 +2,17 @@ import { useEffect, useState } from 'react'
 import { useOrganization } from '../contexts/OrganizationProvider'
 import { supabase } from '@/services/supabase/supabaseClient'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, FolderKanban, Building2, Ruler } from 'lucide-react'
+import { Users, FolderKanban, Building2 } from 'lucide-react'
 
 interface Stats {
   customers: number
   projects: number
   franchises: number
-  totalArea: number
 }
 
 export default function Dashboard() {
   const { activeOrg, isHead } = useOrganization()
-  const [stats, setStats] = useState<Stats>({ customers: 0, projects: 0, franchises: 0, totalArea: 0 })
+  const [stats, setStats] = useState<Stats>({ customers: 0, projects: 0, franchises: 0 })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -22,7 +21,6 @@ export default function Dashboard() {
     ;(async () => {
       setLoading(true)
       try {
-        // RLS уже ограничит видимость, поэтому для head автоматически попадут все дочерние.
         const orgIds: string[] = [activeOrg.id]
         if (isHead) {
           const { data: kids } = await supabase
@@ -30,18 +28,16 @@ export default function Dashboard() {
           if (kids) orgIds.push(...kids.map((k: any) => k.id))
         }
 
-        const [{ count: c }, { count: p }, { data: areas }, { count: fr }] = await Promise.all([
+        const [{ count: c }, { count: p }, { count: fr }] = await Promise.all([
           supabase.from('customers').select('id', { count: 'exact', head: true }).in('organization_id', orgIds),
           supabase.from('projects').select('id', { count: 'exact', head: true }).in('organization_id', orgIds),
-          supabase.from('projects').select('area').in('organization_id', orgIds),
           isHead
             ? supabase.from('organizations').select('id', { count: 'exact', head: true }).eq('parent_organization_id', activeOrg.id)
             : Promise.resolve({ count: 0 } as any),
         ])
 
         if (cancelled) return
-        const totalArea = (areas || []).reduce((s: number, r: any) => s + Number(r.area || 0), 0)
-        setStats({ customers: c || 0, projects: p || 0, franchises: fr || 0, totalArea })
+        setStats({ customers: c || 0, projects: p || 0, franchises: fr || 0 })
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -52,7 +48,6 @@ export default function Dashboard() {
   const cards = [
     { label: 'Клиенты', value: stats.customers, icon: Users },
     { label: 'Объекты', value: stats.projects, icon: FolderKanban },
-    { label: 'Общая площадь, м²', value: stats.totalArea.toFixed(1), icon: Ruler },
     ...(isHead ? [{ label: 'Франчайзи', value: stats.franchises, icon: Building2 }] : []),
   ]
 

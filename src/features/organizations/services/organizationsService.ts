@@ -72,6 +72,9 @@ export const organizationsService = {
   },
 
   async createPersonalFranchise(userId: string, name = 'Моя организация'): Promise<Organization> {
+    const { data: userRes } = await supabase.auth.getUser()
+    const email = userRes?.user?.email ?? null
+    const fullName = (userRes?.user?.user_metadata as any)?.full_name ?? null
     const { data: org, error } = await supabase
       .from('organizations')
       .insert({ name, organization_type: 'franchise', created_by: userId } as any)
@@ -80,7 +83,7 @@ export const organizationsService = {
     if (error) throw error
     const { error: mErr } = await supabase
       .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: 'franchise_owner', status: 'active' } as any)
+      .insert({ organization_id: org.id, user_id: userId, role: 'franchise_owner', status: 'active', email, full_name: fullName } as any)
     if (mErr) throw mErr
     return org as any
   },
@@ -91,6 +94,9 @@ export const organizationsService = {
     type: OrgType,
     parentOrganizationId: string | null = null,
   ): Promise<Organization> {
+    const { data: userRes } = await supabase.auth.getUser()
+    const email = userRes?.user?.email ?? null
+    const fullName = (userRes?.user?.user_metadata as any)?.full_name ?? null
     const { data: org, error } = await supabase
       .from('organizations')
       .insert({
@@ -105,9 +111,19 @@ export const organizationsService = {
     const ownerRole: AppRole = type === 'head' ? 'head_owner' : 'franchise_owner'
     const { error: mErr } = await supabase
       .from('organization_members')
-      .insert({ organization_id: org.id, user_id: userId, role: ownerRole, status: 'active' } as any)
+      .insert({ organization_id: org.id, user_id: userId, role: ownerRole, status: 'active', email, full_name: fullName } as any)
     if (mErr) throw mErr
     return org as any
+  },
+
+  async backfillOwnMemberInfo(userId: string, email: string | null, fullName: string | null): Promise<void> {
+    if (!email && !fullName) return
+    // Обновляем строки участника, где email/full_name пустые.
+    await supabase
+      .from('organization_members')
+      .update({ email, full_name: fullName } as any)
+      .eq('user_id', userId)
+      .or('email.is.null,full_name.is.null')
   },
 
   async listChildFranchises(headOrgId: string): Promise<Organization[]> {
